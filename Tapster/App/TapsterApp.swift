@@ -46,7 +46,7 @@ import SwiftUI
         }.padding(32).frame(minWidth: 500, minHeight: 300)
       }
     }
-    .defaultSize(width: 1180, height: 780)
+    .defaultSize(width: 1320, height: 780)
     .commands { TapsterCommands(state: bootstrap.state) }
 
     Settings {

@@ -13,8 +13,8 @@ Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`
 ## Native foundation
 
 - Swift application in an Xcode macOS app project. Proposed deployment target: macOS 14 or later, using the installed stable SDK. System materials adapt to the OS and Light/Dark appearance.
-- SwiftUI for scenes, split navigation, lists, forms, menus, sheets, toolbars, and settings. SF Symbols and system typography; monospaced system font for template text and keywords.
-- AppKit only where needed: an `NSTextView` template editor, pasteboard access, application lifecycle, and focus coordination. Core Graphics handles event monitoring and generated keyboard events.
+- SwiftUI for scenes, lists, forms, menus, sheets, and settings. SF Symbols and system typography; monospaced system font for template text and keywords.
+- AppKit for the native split container and tracking toolbar, an `NSTextView` template editor, pasteboard access, application lifecycle, and focus coordination. The split container hosts SwiftUI content and keeps column headers aligned during sidebar collapse. Core Graphics handles event monitoring and generated keyboard events.
 - SwiftData for local persistence, with explicit versioned schema and migration strategy. UserDefaults for preferences. No account or server is needed for this scope.
 - Proposed initial distribution: Developer ID signed and notarized app, distributed directly. Validate permission and packaging behavior in the first milestone before making a distribution commitment.
 
@@ -22,7 +22,7 @@ Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`
 
 | Surface | Native implementation | Behavior |
 | --- | --- | --- |
-| Main window | `WindowGroup`, `NavigationSplitView` with three columns | Restore window and selection state; resizable columns; standard titlebar and traffic lights |
+| Main window | `WindowGroup`, `NSSplitViewController` hosting SwiftUI panes, `NSToolbar` with tracking separators | Resizable collections, snippets, editor, and preview panes; standard titlebar and traffic lights; persistent pane containers across selections |
 | Collections | Sidebar-style `List`, `Section`, `Label` | All Snippets, Favorites, user collections; native selection and contextual menus |
 | Snippet list | Selectable `List` and native search | Search names, keywords, and template text; short preview and keyword aligned within each row |
 | Editor fields | `Form`, `TextField`, `Picker`, `Button` | Name, keyword, collection, explicit Save, inline validation |
@@ -36,7 +36,7 @@ Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`
 
 The editor stores plain text as the source of truth. Highlight `{commit_message}` using text attributes, preserving its literal syntax. Do not build a custom text editing engine or use text attachments for tokens in the initial release.
 
-Start around 1180 × 780 points with approximately 190-point sidebar, 280-point list, and remaining editor width. Treat these as initial proportions, then verify minimum usable widths. At narrow sizes, allow the collection sidebar to collapse and let the editor scroll vertically. Preserve native source-list density rather than recreating the mockup pixel for pixel.
+Start around 1320 × 780 points with approximately 190-point sidebar, 280-point list, 270-point preview, and remaining editor width. The sidebar collapses using AppKit's native split behavior. Holding priorities let the editor absorb changes in available space while preserving the other pane widths. Editor content stays left-aligned and scrolls vertically. Preserve native source-list density rather than recreating the mockup pixel for pixel.
 
 ## Editing and data
 
@@ -101,7 +101,7 @@ Prompt-on-expansion fields, rich text/images, snippet chaining, sync, alternate 
 
 ## Platform references
 
-- [NavigationSplitView](https://developer.apple.com/documentation/swiftui/navigationsplitview) and [MenuBarExtra](https://developer.apple.com/documentation/swiftui/menubarextra): native layout and menu bar scenes.
+- [NSSplitViewController](https://developer.apple.com/documentation/appkit/nssplitviewcontroller), [NSTrackingSeparatorToolbarItem](https://developer.apple.com/documentation/appkit/nstrackingseparatortoolbaritem), and [MenuBarExtra](https://developer.apple.com/documentation/swiftui/menubarextra): native split layout, aligned column headers, and menu bar scenes.
 - [CGEvent](https://developer.apple.com/documentation/coregraphics/cgevent) and [Accessibility trust](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions): event APIs and permission checks.
 - [Secure Event Input](https://developer.apple.com/library/archive/technotes/tn2150/_index.html): Apple's archived explanation of protected input and event interception; validate behavior on the target OS.
 - [SwiftData ModelContainer](https://developer.apple.com/documentation/swiftdata/modelcontainer): persistent store and schema management.

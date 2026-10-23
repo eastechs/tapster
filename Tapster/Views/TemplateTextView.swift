@@ -15,7 +15,7 @@ struct TemplateTextView: NSViewRepresentable {
   func makeNSView(context: Context) -> NSScrollView {
     let scroll = NSScrollView()
     scroll.hasVerticalScroller = true
-    scroll.borderType = .bezelBorder
+    scroll.borderType = .noBorder
     let view = NSTextView()
     view.isRichText = false
     view.allowsUndo = true

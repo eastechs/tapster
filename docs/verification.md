@@ -26,6 +26,31 @@ Date: October 23, 2026.
 - Light appearance was inspected. Dark appearance and a full VoiceOver session remain unverified in this pass.
 - Dave reviewed the polish pass and reports a modest improvement with visible issues still remaining. He authorized committing this state; visual acceptance is not complete.
 
+## Editor and preview layout
+
+- The list header shows the active filter or collection and the visible snippet count, including search results and unsaved new snippets. Singular and plural counts are handled separately.
+- Favorite moved beside the snippet title. Expansion is a native switch below Collection. Preview now occupies a separate, resizable right panel. Text inputs and the template share an 8-point rounded border; text fields have additional internal padding and a visible focus outline.
+- New Collection is visible at the bottom of the sidebar and opens the existing creation sheet. Confirmed that blank names disable Save, entering a name enables it, and Cancel leaves the library unchanged. The File menu shortcut remains available.
+- Inspected wide and compact windows in Light appearance, collection/filter selection, search counts, Command-F focus, clipboard/date/multiline previews, and favorite/expansion draft changes. Reversed temporary toggle changes and cancelled the collection test; all four original snippets remain intact.
+- Xcode build, all 27 regression tests, formatting, and whitespace checks pass. Review-loop completed on its second pass after correcting the singular count. Reviewed draft binding lifetime, shared input styling, panel sizing, and existing collection actions. Dark appearance and full VoiceOver use were not checked in this pass.
+
+## Sidebar collapse and layout stability
+
+- Replaced geometry-driven SwiftUI toolbar sizing with an `NSSplitViewController` and native tracking separators. SwiftUI continues to render the library and editor content. Native holding priorities keep list and preview widths stable while the editor absorbs sidebar collapse and window resizing.
+- Split containers now survive snippet changes and empty selections. The editor stays left-aligned; keyword help reserves two lines, and placeholder help stays below its menu so those controls do not jump between horizontal and vertical arrangements.
+- Inspected normal and compact windows, repeated sidebar collapse/expand cycles, switching and clearing selections, temporary drafts, Settings, and the New Collection sheet. Six repeated toggles at each window size returned consistent pane widths and kept New/Save visible without toolbar overflow. The preview and header stayed aligned with their panes.
+- Review corrected Save toolbar validation for clean and invalid drafts, and an accessibility value that retained the previous snippet's preview. Verified disabled Save for clean/invalid drafts, enabled Save after a valid edit, and updated preview accessibility values after selection changes. Temporary edits were reversed or discarded.
+- The final focused review-loop is clean on its second pass. The Xcode build, all 27 regression tests, Swift formatting, shell syntax, and whitespace checks pass. Reviewed native controller lifetimes, toolbar validation, draft bindings, stable view identity, and sibling-view conventions. No expansion engine or storage behavior changed.
+- These checks inspect layout and interaction results, not measured animation frame rates. Automated divider drags did not change widths, so physical divider dragging remains unverified. Dark appearance and a full VoiceOver session remain unverified. The app is left running at its previous window size with all four saved snippets intact and the delay still at 500 ms.
+
+## Divider drag containment correction
+
+- Dave's physical drag check exposed an inset content area that the earlier toggle checks did not cover. The split controller was directly exposed to SwiftUI sizing without an independently pinned container.
+- Added a plain AppKit parent with required constraints on all four child edges. The representable accepts the window's finite proposed size, and the outer SwiftUI frame fills available width and height. Native pane constraints now operate within that allocated area.
+- Added two layout regression tests: lower-priority internal width pressure cannot inset the child at several outer widths, and actual `NSSplitView.setPosition` changes plus collapse/reveal preserve the split view's outer bounds. These run in a separate local test module with no external dependency.
+- Xcode build, all 29 tests, Swift formatting, and whitespace checks pass. The focused review-loop passed its first complete pass, including controller containment, constraint priorities, sizing proposals, lifecycle forwarding, and existing draft behavior.
+- Inspected the rebuilt library, four collapse/reveal transitions, selection changes, toolbar alignment, and preview values. Automated mouse dragging did not move a divider. Dave subsequently tested the physical drag, confirmed that the fix resolved the inset-content issue, and authorized committing the UI changes. All four saved snippets are unchanged.
+
 ## Remaining acceptance
 
 Dave reports that the app is mostly working after the permission and editor crash fixes. Complete cross-app acceptance is still unverified. Other target applications, alternate layouts, composition, sleep/wake, and Dark appearance have not received physical acceptance checks. Automated insertion tests capture events rather than posting them to other applications.

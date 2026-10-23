@@ -36,6 +36,17 @@ struct SidebarView: View {
         }
       }
       .listStyle(.sidebar)
+      Button {
+        state.editCollection(nil)
+      } label: {
+        Label("New Collection", systemImage: "folder.badge.plus")
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .buttonStyle(.borderless)
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      .help("New Collection (⇧⌘N)")
+      Divider()
       HStack {
         Button {
           state.engine.setEnabled(!state.engine.isEnabled, requestPermission: true)
@@ -74,7 +85,7 @@ struct CollectionSheet: View {
           .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       }
     }
-    .textFieldStyle(.roundedBorder)
+    .textFieldStyle(SnippetInputStyle())
     .padding(24).frame(width: 390)
     .onAppear { name = state.collectionToEdit?.name ?? "" }
   }
