@@ -12,19 +12,16 @@ struct SnippetEditorView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
-        HStack(alignment: .firstTextBaseline) {
-          Text(draft.name.isEmpty ? "New Snippet" : draft.name)
-            .font(.title.weight(.semibold)).lineLimit(2)
-          Spacer()
-          Toggle(isOn: $draft.isFavorite) {
-            Image(systemName: draft.isFavorite ? "star.fill" : "star")
-          }
-          .toggleStyle(.button).help("Favorite snippet").accessibilityLabel("Favorite snippet")
-        }
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 12) {
           GridRow {
             Text("Name").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
-            TextField("Snippet name", text: $draft.name).accessibilityLabel("Snippet name")
+            HStack(spacing: 12) {
+              TextField("Snippet name", text: $draft.name).accessibilityLabel("Snippet name")
+              Toggle(isOn: $draft.isFavorite) {
+                Image(systemName: draft.isFavorite ? "star.fill" : "star")
+              }
+              .toggleStyle(.button).help("Favorite snippet").accessibilityLabel("Favorite snippet")
+            }
           }
           GridRow {
             Text("Keyword").foregroundStyle(.secondary)

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
   @Bindable var state: AppState
+  @State private var editorWidth: CGFloat = 420
+  @State private var newButtonWidth: CGFloat = 36
+  @State private var saveButtonWidth: CGFloat = 64
   @State private var visibility: NavigationSplitViewVisibility = .all
   @SceneStorage("selectedSnippetID") private var restoredID = ""
   @SceneStorage("selectedCollection") private var restoredScope = "all"
@@ -12,6 +15,24 @@ struct ContentView: View {
       !state.store.snippets.contains(where: { $0.id == draft.id })
     else { return [] }
     return [draft]
+  }
+
+  private var snippetTitleItem: some ToolbarContent {
+    ToolbarItem(placement: .automatic) {
+      if let draft = state.draft {
+        Text(draft.name.isEmpty ? "New Snippet" : draft.name)
+          .font(.headline)
+          .lineLimit(1)
+          .truncationMode(.tail)
+          .frame(
+            minWidth: 80,
+            idealWidth: max(80, editorWidth - newButtonWidth - saveButtonWidth - 48),
+            maxWidth: max(80, editorWidth - newButtonWidth - saveButtonWidth - 48),
+            alignment: .leading
+          )
+          .help(draft.name)
+      }
+    }
   }
 
   var body: some View {
@@ -54,10 +75,16 @@ struct ContentView: View {
         }
       }
       .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 400)
+      .navigationTitle("Tapster")
     } detail: {
       if let draft = state.draft {
         SnippetEditorView(draft: state.editorBinding(for: draft), state: state)
           .id(draft.id)
+          .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+          } action: {
+            editorWidth = $0
+          }
       } else {
         ContentUnavailableView {
           Label("Your words, a shortcut away", systemImage: "text.insert")
@@ -68,17 +95,31 @@ struct ContentView: View {
         }
       }
     }
-    .navigationTitle("Tapster")
     .toolbar {
-      ToolbarItem(placement: .primaryAction) {
+      if #available(macOS 26.0, *) {
+        snippetTitleItem.sharedBackgroundVisibility(.hidden)
+      } else {
+        snippetTitleItem
+      }
+      ToolbarItem(placement: .automatic) {
         Button(action: state.newSnippet) {
           Label("New Snippet", systemImage: "square.and.pencil")
         }
         .help("New Snippet (⌘N)")
+        .onGeometryChange(for: CGFloat.self) {
+          $0.size.width
+        } action: {
+          newButtonWidth = $0
+        }
       }
-      ToolbarItem(placement: .primaryAction) {
+      ToolbarItem(placement: .automatic) {
         Button(action: { state.save() }) {
           Text("Save").fixedSize().padding(.horizontal, 10)
+        }
+        .onGeometryChange(for: CGFloat.self) {
+          $0.size.width
+        } action: {
+          saveButtonWidth = $0
         }
         .keyboardShortcut("s")
         .disabled(!state.isDirty || state.draftError != nil)
