@@ -7,7 +7,15 @@ struct ContentView: View {
   @SceneStorage("selectedCollection") private var restoredScope = "all"
   @FocusState private var searchFocused: Bool
 
+  private var unsavedSnippets: [SnippetRecord] {
+    guard let draft = state.draft,
+      !state.store.snippets.contains(where: { $0.id == draft.id })
+    else { return [] }
+    return [draft]
+  }
+
   var body: some View {
+    let pendingSnippets = unsavedSnippets
     NavigationSplitView(columnVisibility: $visibility) {
       SidebarView(state: state)
         .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 260)
@@ -18,23 +26,23 @@ struct ContentView: View {
             .textFieldStyle(.roundedBorder)
             .focused($searchFocused)
             .accessibilityLabel("Search snippets")
-          Button(action: state.newSnippet) { Image(systemName: "plus") }
-            .help("New Snippet (⌘N)")
-            .accessibilityLabel("New snippet")
         }
         .padding(12)
         Divider()
         List(selection: Binding(get: { state.selectedID }, set: { state.select($0) })) {
-          if let draft = state.draft, !state.store.snippets.contains(where: { $0.id == draft.id }) {
-            SnippetRow(snippet: draft, isUnsaved: true).tag(draft.id)
-          }
-          ForEach(state.filteredSnippets) { snippet in
-            SnippetRow(snippet: snippet)
+          ForEach(pendingSnippets + state.filteredSnippets) { snippet in
+            let isUnsaved = pendingSnippets.first?.id == snippet.id
+            SnippetRow(snippet: snippet, isUnsaved: isUnsaved)
               .tag(snippet.id)
-              .contextMenu { SnippetContextMenu(state: state, snippet: snippet) }
+              .contextMenu {
+                if !isUnsaved {
+                  SnippetContextMenu(state: state, snippet: snippet)
+                }
+              }
           }
         }
         .listStyle(.inset)
+        .environment(\.defaultMinListRowHeight, 58)
         .overlay {
           if state.filteredSnippets.isEmpty && state.draft == nil {
             ContentUnavailableView(
@@ -63,12 +71,20 @@ struct ContentView: View {
     .navigationTitle("Tapster")
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
-        Button("Save", action: { state.save() })
-          .keyboardShortcut("s")
-          .disabled(!state.isDirty || state.draftError != nil)
+        Button(action: state.newSnippet) {
+          Label("New Snippet", systemImage: "square.and.pencil")
+        }
+        .help("New Snippet (⌘N)")
+      }
+      ToolbarItem(placement: .primaryAction) {
+        Button(action: { state.save() }) {
+          Text("Save").fixedSize().padding(.horizontal, 10)
+        }
+        .keyboardShortcut("s")
+        .disabled(!state.isDirty || state.draftError != nil)
       }
     }
-    .frame(minWidth: 870, minHeight: 600)
+    .frame(minWidth: 960, minHeight: 600)
     .background(WindowLifecycleView(state: state))
     .onAppear {
       guard !state.isDirty else { return }
@@ -125,11 +141,14 @@ private struct SnippetRow: View {
   var isUnsaved = false
   var body: some View {
     HStack(spacing: 10) {
-      if snippet.isFavorite {
-        Image(systemName: "star.fill").foregroundStyle(.yellow).font(.caption)
-      }
       VStack(alignment: .leading, spacing: 4) {
-        Text(snippet.name).fontWeight(.medium).lineLimit(1)
+        HStack(spacing: 6) {
+          Text(snippet.name).fontWeight(.medium).lineLimit(1)
+          if snippet.isFavorite {
+            Image(systemName: "star.fill").foregroundStyle(.secondary).font(.caption)
+              .accessibilityLabel("Favorite")
+          }
+        }
         Text(
           isUnsaved ? "Unsaved snippet" : snippet.template.replacingOccurrences(of: "\n", with: " ")
         )
@@ -138,6 +157,9 @@ private struct SnippetRow: View {
       Spacer(minLength: 4)
       if !snippet.keyword.isEmpty {
         Text(snippet.keyword).font(.system(.caption, design: .monospaced))
+          .lineLimit(1).truncationMode(.middle)
+          .frame(maxWidth: 96).fixedSize(horizontal: true, vertical: false)
+          .help(snippet.keyword)
           .padding(.horizontal, 6).padding(.vertical, 3)
           .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
       }

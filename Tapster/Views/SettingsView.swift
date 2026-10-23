@@ -21,39 +21,47 @@ struct SettingsView: View {
               set: {
                 state.engine.setEnabled($0, requestPermission: true)
               }))
-          LabeledContent("Ambiguous keyword delay") {
-            HStack {
+          HStack {
+            Text("Ambiguous keyword delay")
+            Spacer()
+            HStack(spacing: 6) {
               TextField("Milliseconds", text: $delayText)
                 .labelsHidden().accessibilityLabel("Ambiguous keyword delay in milliseconds")
                 .focused($delayFocused)
-                .frame(width: 65).multilineTextAlignment(.trailing)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 64).multilineTextAlignment(.trailing)
                 .onSubmit(commitDelay)
                 .onDisappear(perform: commitDelay)
               Text("ms").foregroundStyle(.secondary)
-              Stepper("Delay", value: $delay, in: 100...1000, step: 50).labelsHidden()
+              Stepper("Ambiguous keyword delay", value: $delay, in: 100...1000, step: 50)
+                .labelsHidden().fixedSize()
             }
+            .accessibilityElement(children: .contain)
           }
+        } header: {
+          Text("Expansion")
+        } footer: {
           Text(
             "When keywords overlap, Tapster waits briefly for more typing. Other keywords expand immediately. Range: 100–1,000 ms."
           )
           .font(.caption).foregroundStyle(.secondary)
-        } header: {
-          Text("Expansion")
         }
         Section {
           ExpansionTestField().frame(height: 72)
-          Text("Try a saved keyword here. Clipboard placeholders use your current clipboard.")
-            .font(.caption).foregroundStyle(.secondary)
         } header: {
           Text("Try Expansion")
+        } footer: {
+          Text("Try a saved keyword here. Clipboard placeholders use your current clipboard.")
+            .font(.caption).foregroundStyle(.secondary)
         }
         Section {
           Toggle(
             "Launch Tapster at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
-          Text("Closing the library keeps Tapster in the menu bar. Quit Tapster to stop expansion.")
-            .font(.caption).foregroundStyle(.secondary)
         } header: {
           Text("Startup")
+        } footer: {
+          Text("Closing the library keeps Tapster in the menu bar. Quit Tapster to stop expansion.")
+            .font(.caption).foregroundStyle(.secondary)
         }
       }
       .tabItem { Label("General", systemImage: "gearshape") }
@@ -64,14 +72,15 @@ struct SettingsView: View {
             "Accessibility",
             value: state.engine.accessibilityGranted ? "Allowed" : "Required for expansion")
           Button("Open Accessibility…", action: state.engine.openAccessibilitySettings)
-          Text("Accessibility lets Tapster detect keywords and insert snippets in other apps.")
-            .font(.caption).foregroundStyle(.secondary)
           LabeledContent("Status", value: state.engine.status.rawValue)
           if let message = state.engine.lastMessage {
             Text(message).font(.caption).foregroundStyle(.secondary)
           }
         } header: {
           Text("Permissions")
+        } footer: {
+          Text("Accessibility lets Tapster detect keywords and insert snippets in other apps.")
+            .font(.caption).foregroundStyle(.secondary)
         }
         Section {
           Text(
@@ -104,13 +113,15 @@ struct SettingsView: View {
           Button("Add Application…", action: addExcludedApp)
         } header: {
           Text("Excluded Applications")
+        } footer: {
+          Text("Tapster's editor is always excluded.").font(.caption).foregroundStyle(.secondary)
         }
-        Text("Tapster's editor is always excluded.").font(.caption).foregroundStyle(.secondary)
       }
       .tabItem { Label("Excluded Apps", systemImage: "app.badge") }
     }
     .formStyle(.grouped)
-    .padding(12).frame(width: 540, height: 500)
+    .controlSize(.regular)
+    .frame(width: 560, height: 520)
     .onAppear {
       delayText = String(delay)
       launchAtLogin = SMAppService.mainApp.status == .enabled

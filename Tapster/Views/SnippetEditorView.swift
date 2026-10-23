@@ -11,26 +11,27 @@ struct SnippetEditorView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 24) {
+      VStack(alignment: .leading, spacing: 20) {
         HStack(alignment: .firstTextBaseline) {
           Text(draft.name.isEmpty ? "New Snippet" : draft.name)
-            .font(.system(size: 26, weight: .semibold)).lineLimit(2)
+            .font(.title.weight(.semibold)).lineLimit(2)
           Spacer()
           Toggle(isOn: $draft.isFavorite) {
             Image(systemName: draft.isFavorite ? "star.fill" : "star")
           }
           .toggleStyle(.button).help("Favorite snippet").accessibilityLabel("Favorite snippet")
         }
-        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 18) {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 12) {
           GridRow {
-            Text("Name").foregroundStyle(.secondary)
-            TextField("Snippet name", text: $draft.name)
+            Text("Name").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+            TextField("Snippet name", text: $draft.name).accessibilityLabel("Snippet name")
           }
           GridRow {
             Text("Keyword").foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 7) {
               TextField("Optional keyword", text: $draft.keyword)
-                .font(.system(.body, design: .monospaced)).frame(maxWidth: 210)
+                .font(.system(.body, design: .monospaced)).frame(width: 220)
+                .accessibilityLabel("Keyword")
               Text(keywordHelp).font(.caption).foregroundStyle(.secondary)
             }
           }
@@ -39,38 +40,35 @@ struct SnippetEditorView: View {
             Picker("Collection", selection: $draft.collectionID) {
               Text("None").tag(UUID?.none)
               ForEach(state.store.collections) { Text($0.name).tag(Optional($0.id)) }
-            }.labelsHidden().frame(maxWidth: 240)
+            }
+            .labelsHidden().frame(maxWidth: 220).fixedSize()
+            .frame(width: 220, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
         }
         .textFieldStyle(.roundedBorder)
 
         VStack(alignment: .leading, spacing: 10) {
-          Text("Template").fontWeight(.medium)
+          Text("Template").font(.headline)
           TemplateTextView(text: $draft.template, insertion: insertion)
-            .frame(minHeight: 190, idealHeight: 230)
-          HStack {
-            Menu {
-              Button("Clipboard") {
-                placeholderSource = .clipboard
-                showingPlaceholder = true
-              }
-              Button("Date & Time") {
-                placeholderSource = .dateTime
-                showingPlaceholder = true
-              }
-            } label: {
-              Label("Insert Placeholder", systemImage: "plus")
+            .frame(height: 160)
+          ViewThatFits(in: .horizontal) {
+            HStack {
+              placeholderMenu
+              Spacer(minLength: 12)
+              braceHint
             }
-            .menuStyle(.borderlessButton).fixedSize()
-            Spacer()
-            Text("{{ and }} insert literal braces").font(.caption).foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 8) {
+              placeholderMenu
+              braceHint
+            }
           }
         }
 
         if !names.isEmpty {
-          Divider()
-          VStack(alignment: .leading, spacing: 14) {
-            Text("Placeholders").fontWeight(.medium)
+          VStack(alignment: .leading, spacing: 12) {
+            Divider().padding(.bottom, 4)
+            Text("Placeholders").font(.headline)
             ForEach(names, id: \.self) { name in PlaceholderRow(name: name, draft: $draft) }
           }
         }
@@ -79,40 +77,54 @@ struct SnippetEditorView: View {
           Label(error, systemImage: "exclamationmark.circle")
             .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
         }
-        Divider()
-        VStack(alignment: .leading, spacing: 14) {
-          Text("PREVIEW").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
-          LabeledContent("Clipboard") {
-            TextField("Sample clipboard text", text: $state.sampleClipboard).textFieldStyle(
-              .roundedBorder)
-          }
-          LabeledContent("Result") {
-            Group {
-              if let result = try? TemplateResolver.resolve(draft, clipboard: state.sampleClipboard)
-              {
-                Text(result.isEmpty ? " " : result).font(.system(.body, design: .monospaced))
-                  .textSelection(.enabled)
-              } else {
-                Text("Complete the template and mappings to preview.").foregroundStyle(.secondary)
-              }
+        VStack(alignment: .leading, spacing: 12) {
+          Divider().padding(.bottom, 4)
+          Text("Preview").font(.headline)
+          Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 12) {
+            GridRow {
+              Text("Clipboard").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+              TextField("Sample clipboard text", text: $state.sampleClipboard)
+                .textFieldStyle(.roundedBorder).accessibilityLabel("Sample clipboard text")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+            GridRow(alignment: .top) {
+              Text("Result").foregroundStyle(.secondary).padding(.top, 10)
+              Group {
+                if let result = try? TemplateResolver.resolve(
+                  draft, clipboard: state.sampleClipboard)
+                {
+                  Text(result.isEmpty ? " " : result).font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                } else {
+                  Text("Complete the template and mappings to preview.").foregroundStyle(.secondary)
+                }
+              }
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(10)
+              .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+            }
           }
         }
-        Toggle("Enable expansion for this snippet", isOn: $draft.isEnabled)
-          .font(.callout)
-        Button("Copy Expanded Text", action: state.copyExpandedText)
-          .disabled(state.draftError != nil)
-          .help("Resolves placeholders using the current clipboard")
+        ViewThatFits(in: .horizontal) {
+          HStack {
+            expansionToggle
+            Spacer(minLength: 16)
+            copyButton
+          }
+          VStack(alignment: .leading, spacing: 12) {
+            expansionToggle
+            copyButton
+          }
+        }
         if let message = state.engine.lastMessage {
           Text(message).font(.caption).foregroundStyle(.secondary)
         }
       }
-      .padding(28)
-      .frame(maxWidth: 900, alignment: .leading)
+      .padding(24)
+      .frame(maxWidth: 760, alignment: .leading)
       .frame(maxWidth: .infinity)
     }
+    .frame(minWidth: 420)
+    .controlSize(.regular)
     .sheet(isPresented: $showingPlaceholder) {
       PlaceholderSheet(source: placeholderSource, existingNames: names) { name, source in
         draft.placeholders.removeAll { $0.name == name }
@@ -122,6 +134,38 @@ struct SnippetEditorView: View {
     }
   }
 
+  private var placeholderMenu: some View {
+    Menu {
+      Button("Clipboard") {
+        placeholderSource = .clipboard
+        showingPlaceholder = true
+      }
+      Button("Date & Time") {
+        placeholderSource = .dateTime
+        showingPlaceholder = true
+      }
+    } label: {
+      Label("Insert Placeholder", systemImage: "plus")
+    }
+    .fixedSize()
+  }
+
+  private var braceHint: some View {
+    Text("{{ and }} insert literal braces").font(.caption).foregroundStyle(.secondary)
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private var expansionToggle: some View {
+    Toggle("Enable expansion", isOn: $draft.isEnabled)
+      .help("Enable expansion for this snippet")
+  }
+
+  private var copyButton: some View {
+    Button("Copy Expanded Text", action: state.copyExpandedText)
+      .disabled(state.draftError != nil)
+      .help("Resolves placeholders using the current clipboard")
+  }
+
   private var keywordHelp: String {
     if !draft.keyword.isEmpty
       && state.store.snippets.contains(where: {
@@ -129,7 +173,7 @@ struct SnippetEditorView: View {
           && ($0.keyword.hasPrefix(draft.keyword) || draft.keyword.hasPrefix($0.keyword))
       })
     {
-      return "Overlapping keywords use the delay in Settings → Expansion."
+      return "Overlapping keywords use the delay in Settings → General."
     }
     return "Expands as you type. Leave empty to copy manually."
   }
@@ -143,8 +187,9 @@ private struct PlaceholderRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 18) {
-        Text(name).font(.system(.body, design: .monospaced)).frame(
-          maxWidth: .infinity, alignment: .leading)
+        Text(name).font(.system(.body, design: .monospaced))
+          .lineLimit(2).truncationMode(.middle).help(name).frame(
+            maxWidth: .infinity, alignment: .leading)
         Picker(
           "Source for \(name)",
           selection: Binding<PlaceholderSource?>(get: { definition?.source }, set: setSource)
@@ -152,10 +197,12 @@ private struct PlaceholderRow: View {
           Text("Choose source…").tag(PlaceholderSource?.none)
           ForEach(PlaceholderSource.allCases) { Text($0.title).tag(Optional($0)) }
         }
-        .labelsHidden().frame(width: 180)
+        .labelsHidden().fixedSize()
+        .frame(width: 180, alignment: .trailing)
       }
       if definition?.source == .dateTime {
         HStack {
+          Text("Format").foregroundStyle(.secondary)
           TextField(
             "Date format",
             text: Binding(
@@ -165,7 +212,8 @@ private struct PlaceholderRow: View {
                   draft.placeholders[index].dateFormat = value
                 }
               })
-          ).textFieldStyle(.roundedBorder).frame(width: 180)
+          ).textFieldStyle(.roundedBorder).frame(width: 140).accessibilityLabel(
+            "Date format for \(name)")
           Text(dateExample).font(.caption).foregroundStyle(.secondary)
         }
       }
@@ -212,6 +260,7 @@ private struct PlaceholderSheet: View {
           !TemplateParser.isValidName(name))
       }
     }
+    .textFieldStyle(.roundedBorder)
     .padding(24).frame(width: 390)
     .onAppear { name = source == .clipboard ? "clipboard" : "today" }
   }

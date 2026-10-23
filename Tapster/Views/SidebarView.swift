@@ -50,7 +50,7 @@ struct SidebarView: View {
         .help(state.engine.isEnabled ? "Pause expansion" : "Enable expansion")
         Spacer(minLength: 4)
         SettingsLink { Image(systemName: "gearshape") }
-          .buttonStyle(.plain).help("Settings")
+          .buttonStyle(.plain).help("Settings").accessibilityLabel("Settings")
       }
       .padding(12)
     }
@@ -74,7 +74,8 @@ struct CollectionSheet: View {
           .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       }
     }
-    .padding(24).frame(width: 360)
+    .textFieldStyle(.roundedBorder)
+    .padding(24).frame(width: 390)
     .onAppear { name = state.collectionToEdit?.name ?? "" }
   }
 
