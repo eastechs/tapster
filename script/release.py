@@ -260,9 +260,13 @@ def publish_release(args, config):
     bucket, prefix = config["spaces_bucket"], config["spaces_prefix"]
     with tempfile.TemporaryDirectory(prefix="textend-publish-") as temporary:
         previous = Path(temporary) / "appcast.xml"
-        result = run(*command, "s3api", "get-object", "--bucket", bucket,
-                     "--key", f"{prefix}/appcast.xml", previous, allow_failure=True)
+        # Spaces can return a missing-object body that the AWS CLI cannot decode.
+        # HEAD distinguishes absence from access/network errors without reading it.
+        result = run(*command, "s3api", "head-object", "--bucket", bucket,
+                     "--key", f"{prefix}/appcast.xml", allow_failure=True)
         if result.returncode == 0:
+            run(*command, "s3api", "get-object", "--bucket", bucket,
+                "--key", f"{prefix}/appcast.xml", previous)
             run(TOOLS / "sign_update", "--account", ACCOUNT, "--verify", previous)
             if sha256(previous) == sha256(feed):
                 verify_public_feed(feed)

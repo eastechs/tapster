@@ -74,6 +74,7 @@ class PublishWorkflow(unittest.TestCase):
         self.commands = []
         self.remote_feed = None
         self.remote_error = "(NoSuchKey)"
+        self.remote_get_error = None
         self.remote_archive = None
         self.public_archive = b"archive"
         self.public_feed = self.appcast.read_bytes()
@@ -82,10 +83,16 @@ class PublishWorkflow(unittest.TestCase):
     def run_command(self, *args, **kwargs):
         self.commands.append(tuple(str(x) for x in args))
         if "get-object" in args:
+            if self.remote_get_error:
+                raise RuntimeError(self.remote_get_error)
             if self.remote_feed is None:
                 return subprocess.CompletedProcess(args, 1, "", self.remote_error)
             Path(args[-1]).write_text(self.remote_feed)
         if "head-object" in args:
+            if "macos/appcast.xml" in args:
+                if self.remote_feed is None:
+                    return subprocess.CompletedProcess(args, 1, "", self.remote_error)
+                return subprocess.CompletedProcess(args, 0, "{}", "")
             if self.remote_archive is None:
                 return subprocess.CompletedProcess(args, 1, "", "(404)")
             return subprocess.CompletedProcess(args, 0, json.dumps(self.remote_archive), "")
@@ -111,6 +118,20 @@ class PublishWorkflow(unittest.TestCase):
         self.assertIn(str(self.package), uploads[0])
         self.assertIn(str(self.appcast), uploads[1])
         self.assertIn("no-cache,max-age=0,must-revalidate", uploads[1])
+
+    def test_missing_feed_is_not_downloaded(self):
+        self.remote_error = "(404) Not Found"
+        self.remote_get_error = "argument of type 'NoneType' is not a container or iterable"
+        self.publish()
+        self.assertFalse(any("get-object" in command for command in self.commands))
+        self.assertEqual(len(self.uploads()), 2)
+
+    def test_existing_feed_download_failure_blocks_upload(self):
+        self.remote_feed = feed(1)
+        self.remote_get_error = "connection failed"
+        with self.assertRaisesRegex(RuntimeError, "connection failed"):
+            self.publish()
+        self.assertEqual(self.uploads(), [])
 
     def test_feed_not_published_if_public_download_differs(self):
         self.public_archive = b"corrupt"
