@@ -18,6 +18,7 @@ struct SnippetListView: View {
           let isUnsaved = pendingSnippets.first?.id == snippet.id
           SnippetRow(snippet: snippet, isUnsaved: isUnsaved)
             .tag(snippet.id)
+            .textendSelection(state.selectedID == snippet.id)
             .contextMenu {
               if !isUnsaved {
                 SnippetContextMenu(state: state, snippet: snippet)

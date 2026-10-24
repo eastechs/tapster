@@ -128,7 +128,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Accent color",
           body:
-            "Choose Blue, Purple, Pink, Red, Orange, Yellow, Green, or Graphite. Controls, sidebar icons, input borders, and placeholder highlights update immediately. Native selection highlights and window controls continue to use your macOS accent color."
+            "Choose Blue, Purple, Pink, Red, Orange, Yellow, Green, or Graphite. Controls, sidebar icons, list selections, input borders, and placeholder highlights update immediately. Window controls and system menus continue to use your macOS accent color."
         ),
       ]),
     HelpTopic(

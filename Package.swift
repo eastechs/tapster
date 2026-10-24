@@ -19,7 +19,9 @@ let package = Package(
       name: "TapsterCoreTests", dependencies: ["TapsterCore"], path: "Tests/TapsterCoreTests"),
     .target(
       name: "TapsterLayout", path: "Tapster/Support",
-      exclude: ["LibrarySplitView.swift", "WindowLifecycleView.swift"],
+      exclude: [
+        "LibrarySplitView.swift", "WindowLifecycleView.swift", "ThemedSelectionBridge.swift",
+      ],
       sources: ["PinnedContentController.swift"]),
     .testTarget(
       name: "TapsterLayoutTests", dependencies: ["TapsterLayout"], path: "Tests/TapsterLayoutTests"),

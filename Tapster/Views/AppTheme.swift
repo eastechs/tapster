@@ -68,6 +68,53 @@ private struct AppTheme: ViewModifier {
 extension View {
   /// Each AppKit hosting root observes the same preference without replacing its content.
   func textendTheme() -> some View { modifier(AppTheme()) }
+
+  func textendSelection(_ isSelected: Bool) -> some View {
+    modifier(ThemedListSelection(isSelected: isSelected))
+  }
+}
+
+private struct ThemedListSelection: ViewModifier {
+  var isSelected: Bool
+  @Environment(\.textendAccent) private var accent
+  @Environment(\.controlActiveState) private var activeState
+
+  private var foreground: Color {
+    guard isSelected else { return .primary }
+    guard activeState != .inactive else { return Color(nsColor: .unemphasizedSelectedTextColor) }
+    return [.yellow, .green, .orange, .graphite].contains(accent) ? .black : .white
+  }
+
+  func body(content: Content) -> some View {
+    content
+      .background(ThemedSelectionBridge())
+      .foregroundStyle(foreground)
+      .listItemTint(.fixed(isSelected ? foreground : accent.color))
+      .labelStyle(ThemedSelectionLabelStyle(color: isSelected ? foreground : accent.color))
+      .listRowBackground(
+        isSelected
+          ? RoundedRectangle(cornerRadius: 6)
+            .fill(
+              activeState == .inactive
+                ? Color(nsColor: .unemphasizedSelectedContentBackgroundColor) : accent.color
+            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 2)
+          : nil)
+  }
+}
+
+private struct ThemedSelectionLabelStyle: LabelStyle {
+  var color: Color
+
+  func makeBody(configuration: Configuration) -> some View {
+    Label {
+      configuration.title
+    } icon: {
+      configuration.icon.foregroundStyle(color)
+    }
+    .labelStyle(.titleAndIcon)
+  }
 }
 
 struct AccentColorPicker: View {
@@ -104,7 +151,7 @@ struct AppearanceSettingsView: View {
         Text("Appearance")
       } footer: {
         Text(
-          "System follows your Mac’s Light or Dark appearance. List selection highlights and window controls use your macOS accent color."
+          "System follows your Mac’s Light or Dark appearance. Window controls and system menus use your macOS accent color."
         )
         .font(.caption).foregroundStyle(.secondary)
       }

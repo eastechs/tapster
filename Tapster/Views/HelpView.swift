@@ -12,7 +12,6 @@ extension FocusedValues {
 }
 
 struct HelpView: View {
-  @Environment(\.textendAccent) private var accent
   @State private var selection: String? = "start"
   @State private var search = ""
   @FocusState private var searchFocused: Bool
@@ -30,7 +29,7 @@ struct HelpView: View {
           .accessibilityLabel("Search Help").padding(12)
         List(topics, selection: $selection) { topic in
           Label(topic.title, systemImage: topic.symbol).tag(topic.id)
-            .listItemTint(accent.color)
+            .textendSelection(selection == topic.id)
         }
         .listStyle(.sidebar)
       }
