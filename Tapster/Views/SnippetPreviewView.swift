@@ -40,7 +40,7 @@ struct SnippetPreviewView: View {
         Divider()
         VStack(alignment: .leading, spacing: 8) {
           Button("Copy Expanded Text", action: state.copyExpandedText)
-            .disabled(state.draftError != nil)
+            .disabled(state.copyError != nil)
             .help("Resolves placeholders using the current clipboard")
           Text("Uses your current clipboard.")
             .font(.caption).foregroundStyle(.secondary)

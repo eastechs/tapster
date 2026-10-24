@@ -24,6 +24,29 @@ struct SnippetEditorView: View {
   private var editor: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
+        if state.remoteDraftDeleted {
+          VStack(alignment: .leading, spacing: 8) {
+            Label(
+              "Deleted on another Mac. Your unsaved draft is still here.",
+              systemImage: "icloud.slash")
+            HStack {
+              Button("Save as New Snippet", action: state.saveDeletedDraftAsNew)
+              Button("Discard Draft", action: state.discardDraft)
+            }
+          }
+        } else if state.remoteDraftChanged {
+          Label(
+            "Changed on another Mac. Saving keeps your edits and the remote changes to fields you haven’t edited.",
+            systemImage: "icloud"
+          )
+          .font(.callout).foregroundStyle(.secondary)
+        }
+        if let saved = state.store.snippets.first(where: { $0.id == draft.id }),
+          let issue = state.store.expansionIssue(for: saved)
+        {
+          Label(issue, systemImage: "exclamationmark.triangle")
+            .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+        }
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 12) {
           GridRow {
             Text("Name").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
@@ -43,6 +66,11 @@ struct SnippetEditorView: View {
             Text("Collection").foregroundStyle(.secondary)
             Picker("Collection", selection: $draft.collectionID) {
               Text("None").tag(UUID?.none)
+              if let id = draft.collectionID,
+                !state.store.collections.contains(where: { $0.id == id })
+              {
+                Text("Collection unavailable").tag(Optional(id))
+              }
               ForEach(state.store.collections) { Text($0.name).tag(Optional($0.id)) }
             }
             .labelsHidden().frame(maxWidth: 220).fixedSize()

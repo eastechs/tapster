@@ -50,10 +50,11 @@ domain `https://cdn.usetextend.com`.
    The release team is `VK288Z42NG` and a matching Developer ID Application
    certificate with its private key is required.
 
-The current development build uses an Apple Development identity from a different
-team. Installing the Developer ID release may require granting Accessibility and
-Input Monitoring again. Keep the release bundle ID and Developer ID team stable
-for subsequent updates.
+Development and release now use team `VK288Z42NG` with separate CloudKit
+environments and provisioning profiles. Follow [iCloud provisioning](icloud-sync.md)
+before building. Installing a differently signed build may require granting
+Accessibility and Input Monitoring again. Keep the release bundle ID and Developer
+ID team stable for subsequent updates.
 
 Textend's Sparkle signing key has already been generated under Keychain account
 `chat.eastechs.textend`. Only its public key is tracked in `Config/Updates.xcconfig`.

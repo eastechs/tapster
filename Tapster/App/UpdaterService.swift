@@ -15,6 +15,10 @@ import SwiftUI
     #if DEBUG
       unavailableReason = "Updates are disabled in development builds."
     #else
+      guard !ProcessInfo.processInfo.arguments.contains("--sync-preview") else {
+        unavailableReason = "Updates are disabled in sync verification previews."
+        return
+      }
       let info = Bundle.main.infoDictionary ?? [:]
       guard let feed = info["SUFeedURL"] as? String,
         let url = URL(string: feed), url.scheme == "https", url.host != nil,

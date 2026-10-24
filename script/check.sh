@@ -6,5 +6,6 @@ bash -n script/build_and_run.sh script/check.sh script/export_icon.sh script/set
 git diff --check
 swift format lint --strict --recursive Tapster Tests Package.swift
 python3 script/test_release.py
+python3 script/test_provisioning.py
 swift test
 ./script/build_and_run.sh --build-only

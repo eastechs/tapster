@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
   @Bindable var state: AppState
   var updater: UpdaterService
+  var sync: SyncCoordinator?
   @AppStorage("debounceMilliseconds") private var delay = 250
   @State private var delayText = "250"
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -66,6 +67,10 @@ struct SettingsView: View {
         }
       }
       .tabItem { Label("General", systemImage: "gearshape") }
+
+      if let sync {
+        ICloudSettingsView(sync: sync).tabItem { Label("iCloud", systemImage: "icloud") }
+      }
 
       AppearanceSettingsView()
         .tabItem { Label("Appearance", systemImage: "circle.lefthalf.filled") }

@@ -17,7 +17,10 @@ struct TriggerMatcher {
   var delay: TimeInterval = 0.25
 
   mutating func update(_ snippets: [SnippetRecord]) {
-    self.snippets = snippets.filter { $0.isEnabled && !$0.keyword.isEmpty }
+    let groups = Dictionary(grouping: snippets, by: \.keyword)
+    self.snippets = snippets.filter {
+      $0.isEnabled && !$0.keyword.isEmpty && groups[$0.keyword]?.count == 1
+    }
     longestKeyword = self.snippets.map { $0.keyword.count }.max() ?? 0
     reset()
   }

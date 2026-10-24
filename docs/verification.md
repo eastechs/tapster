@@ -127,3 +127,230 @@ Run `./script/check.sh` to repeat formatting, tests, and the Xcode build. The Co
 - The installed 0.1.0 app found 0.1.1 through Check for Updates, displayed its release notes, downloaded it, and reached Ready to Install. With a temporary unsaved name edit, Install and Relaunch presented Save/Discard/Cancel. Cancel retained the draft and left 0.1.0 installed. Retrying and choosing Discard Changes discarded only that temporary edit, installed the update, and relaunched Textend without a manual launch.
 - Verified `/Applications/Textend.app` is now 0.1.1 build 3 and the new process runs from that path. Deep strict code-signature verification, Gatekeeper assessment as Notarized Developer ID, and stapler validation all passed. A second Check for Updates reported 0.1.1 is the newest version.
 - All four saved snippets and both collections remain present, the temporary name edit is gone, and Save is disabled for the clean draft. Expansion remains active without another Accessibility grant. This establishes the actual download, installation, relaunch, draft cancellation, and permission-retention path. Cross-app physical typing and the Save branch of the update prompt were not retested. The installed release is left running; no development build was launched.
+
+## iCloud sync implementation, October 24, 2026
+
+Status: implemented locally, acceptance still in progress. No feature commit,
+release publication, or replacement of `/Applications/Textend.app` was performed.
+
+- Registered Textend's App ID with iCloud and Push Notifications under team
+  `VK288Z42NG`, registered `iCloud.chat.eastechs.tapster`, and associated it.
+- Generated both named CloudKit profiles. Installed and validated the development
+  profile, including this Mac. The Developer ID profile was subsequently installed
+  and validated; see the production verification below.
+- The provisioned development app builds and launches. Its isolated library was
+  initially empty. The real account check reports Signed in.
+- Ran the development-only CloudKit schema initializer. The app subsequently
+  opened normally, and observed CloudKit import/export events produced successful
+  transfer timestamps. Created `CloudKit Development Check` / `;cloudcheck` with
+  disposable test text in the development library. Export completion was observed
+  in Core Data logs. This does not establish receipt on another Mac.
+- Native Settings inspection covered Light and Dark appearances, a green accent,
+  enable/disable confirmation, unsaved draft Save/Discard/Cancel presentation,
+  cancelling restart, discarding a temporary draft, and disabling/re-enabling with
+  restart. The saved test snippet survived both restarts. Appearance preferences
+  were restored to System and Blue after inspection.
+- One inspection attempt reopened the preview while the restart helper also
+  launched it. Stopped only those development processes. The restart helper now
+  uses normal application reopening, and the preview script refuses to rebuild
+  an already running preview. Subsequent restarts each produced one process with
+  `--sync-preview`, keeping expansion initially paused.
+- Final `./script/check.sh` passes: 35 Swift tests, 16 release guard tests, 3
+  provisioning tests, strict Swift formatting, shell syntax, whitespace checks,
+  and the provisioned Xcode development build.
+- New tests cover real V1 SQLite migration and reopening its V1 backup; clean and
+  dirty editor refresh; field-level saves; remote deletion and Save as New;
+  duplicate logical identities; invalid placeholder preservation; duplicate
+  keyword suppression and correction; partial collection arrival; recovery
+  snapshots; account isolation; restart cancellation/rollback; offline editing;
+  and recovery write failure. Remote changes use separate local model contexts
+  and injected account providers, so these are not two-device CloudKit tests.
+- Review-loop pass 1 corrected existing conflicts blocking unrelated edits,
+  validation against stale draft fields, transfer errors being cleared by account
+  refresh, recovery failures permitting restart, and duplicate preview launching.
+  Pass 2 found no further code defects in the reviewed local scope; its automated
+  checks pass. Plan acceptance remains open at the gates below.
+
+Acceptance gates at this initial checkpoint (subsequent results are recorded below):
+
+- Complete the two-Mac matrix in `docs/icloud-sync.md`, including real offline/concurrent edits,
+  deletions, conflicts, collection changes, relaunch, and remote expansion.
+- Inspect native conflict/deletion/error states from those real sync scenarios.
+  Actual account switching and sleep/wake transfer behavior are not yet verified.
+- A signed/notarized public release still requires subsequent authorization.
+
+
+### Production provisioning and CloudKit access
+
+- Installed and validated `Textend CloudKit Developer ID` profile
+  `62cdebfb-e76e-4c63-b9fe-1dbd9fd6d283`. It matches the existing Developer ID
+  Application certificate and has production CloudKit and APNs entitlements.
+- Reviewed CloudKit Console's schema diff against V2: `CD_SavedSnippet`,
+  `CD_SavedCollection`, their fields and the framework-generated indexes. Deployed
+  the schema and observed Apple's “Changes Deployed” confirmation. No user library
+  was uploaded by schema deployment. Apple describes this separation in its
+  [schema deployment guidance](https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema).
+- Archived and exported an internal 0.1.2 (4) verification build under
+  `build/releases.noindex/cloudkit-verification/`. Deep/strict signature verification
+  passes. The app contains arm64 and x86_64, the matching embedded profile,
+  Production CloudKit, production APNs, and no debugger entitlement.
+- Launched with `--sync-preview`. Release previews now use the separate
+  `ProductionPreview` library and keep Sparkle disabled. The library began empty;
+  `/Applications/Textend.app` and its ordinary library were not replaced or opened
+  by this preview.
+- The production-signed app reported Signed in. Enabled sync through Settings and
+  its restart flow, created `CloudKit Production Check` / `;productioncheck`, and
+  observed a completed production transfer at 2:47 PM on October 24. Both the
+  rendered Settings status and Core Data export logs confirm completion.
+- That test record remains in Dave's private production CloudKit database for the
+  two-Mac check. The separate development fixture remains in development.
+- This internal artifact is not notarized or published. No Sparkle feed or Spaces
+  object was changed. Real second-Mac receipt and the remaining matrix still need
+  verification before release acceptance.
+- Follow-up review-loop for production preview isolation found no additional
+  defects. `./script/check.sh` remains green (35 Swift tests, 19 Python guard tests,
+  formatting, shell syntax, whitespace, and signed Debug build). The native
+  Updates tab confirms Sparkle is disabled in the production verification preview.
+  Closed the verification app after checks. Overall acceptance remains pending
+  the second Mac and real multi-device scenarios listed above.
+
+
+### Mac Studio preparation
+
+- Completed Apple's annual device-list confirmation retaining all three existing
+  devices. Registered Dave's Mac Studio and regenerated `Textend CloudKit
+  Development` with both the MacBook Pro and Mac Studio selected.
+- Installed refreshed development profile `5d7734ec-eb13-46b2-8349-7b9420ac73f3`
+  from the user-supplied download and confirmed both registered Macs are included.
+  The older profile is retained beside Xcode's profile directory.
+- Incremental Xcode build replaced the embedded profile without refreshing its
+  resource signature. Deep/strict verification caught it. A clean build corrected
+  the signature; both architectures and the two-device embedded profile verify.
+- Packaged the development app with a preview launcher and first-sync instructions
+  at `build/releases.noindex/two-mac-development/Textend-iCloud-Test.zip`.
+  The launcher requires other Textend instances to be quit and passes
+  `--sync-preview`. It uses the isolated development library, initially pauses
+  expansion, and leaves the installed release untouched.
+- Dave confirmed on October 24 that initial sync succeeded on Mac Studio after
+  opening the test package. This is user-reported second-Mac receipt, following
+  the first Mac's observed development export. The package is
+  development-signed and is not notarized or publicly distributed.
+- The Studio edit initially did not arrive; Dave reported that the sync switch
+  might not have been enabled and requested another check. Subsequently verified
+  `Updated from mac studio` in this Mac's saved SQLite record, snippet list,
+  clean editor, and preview without relaunching the development app. This confirms
+  a real Studio-to-MacBook edit and live clean-editor refresh.
+- Saved `Updated from MacBook Pro` through the native editor for the return-direction
+  check. Dave confirmed it appeared on the Studio without restarting Textend.
+  Real saved edits and clean-editor refresh are now verified in both directions,
+  with Studio observations reported by Dave. Concurrent edits, conflicts, and
+  the remaining two-Mac matrix are still pending.
+- Dave saved an edit while the Studio was offline, reconnected, and later reported
+  that it synced. This Mac initially retained the previous value with no recent
+  import activity. After relaunching only the development preview, verified
+  `Saved offline mac studio` in the saved SQLite record, list, editor, and preview.
+  Offline preservation and subsequent cloud delivery are confirmed. Automatic
+  receiver delivery after reconnect was not demonstrated in this run; relaunch
+  was part of the observation, so this is not a clean pass for that behavior.
+- Concurrent draft check: left `CloudKit Draft Check` as an unsaved name here
+  while Dave saved `Studio's concurrent edit` as the template on Studio. CloudKit
+  logs show a push-triggered import completing at 3:39:41 PM. Without restarting,
+  the saved list updated, the local draft remained intact, and the editor displayed
+  its changed-on-another-Mac notice. Saving retained both the locally edited name
+  and the remotely edited template, verified in the native UI and SQLite record.
+  This confirms live import and field-level draft merging for different fields;
+  the same-field check is recorded below, and the earlier reconnect delay remains
+  a separate observation.
+- Remote deletion check: Dave deleted the test snippet on Studio while this Mac
+  held an unsaved template. The deletion arrived without restarting. The sidebar
+  showed zero saved snippets, while the editor retained the full draft and showed
+  “Deleted on another Mac” with Save as New Snippet and Discard Draft actions.
+  Choosing Save as New Snippet persisted exactly one record containing
+  `Preserved draft after remote deletion`, verified in the UI and SQLite. The
+  Discard action was visible but was not exercised in this live two-Mac check.
+- Duplicate-keyword check: Dave created `Studio Conflict` offline while this Mac
+  saved `MacBook Conflict`, both using `;syncconflict`. After reconnecting, Dave
+  confirmed both records and conflict warnings on Studio. Both enabled switches
+  remain on by design: the stored preference is preserved while conflicts are
+  excluded from the expansion index. Re-ran the focused
+  `testRemoteChangesRefreshDraftAndSuppressDuplicateKeywords` test successfully;
+  it verifies exclusion, manual-copy eligibility, and restoration after renaming.
+  Dave then confirmed real typing on Studio with global expansion resumed:
+  `;cloudcheck` expands while `;syncconflict` stays literal. This verifies expansion
+  of a remotely received snippet and actual conflict suppression, rather than a
+  result caused by globally paused expansion. Dave then changed Studio Conflict's
+  keyword to `;studioconflict` and confirmed the warnings cleared and both keywords
+  expanded without changing their enabled switches. Live conflict resolution and
+  automatic restoration of expansion are confirmed on Studio.
+- Collection/favorite check: created `Sync Collection`, assigned MacBook Conflict,
+  and favorited it here. Dave confirmed the collection, membership, and star on
+  Studio and renamed the collection there. `Studio Collection` arrived here
+  without relaunching, including the editor's collection picker. Deleting that
+  test collection here retained all three snippets and MacBook Conflict's favorite
+  state, with its collection set to None. Dave reported the collection initially
+  remained on Studio, then disappeared after a delay while sync stayed enabled.
+  Collection deletion delivery is confirmed; this test did not establish an
+  exact latency or an immediate-delivery guarantee.
+- Disable/re-enable check: Dave disabled sync on Studio, restarted, made a local
+  edit, re-enabled sync, and restarted again. He confirmed all three snippets
+  remained. This Mac received the edit without restarting: the `;studioconflict`
+  snippet's name became `Saved with sync off`, while its template remained
+  `Studio conflict test`. The requested edit targeted the template, but the actual
+  name edit still verifies local editing and subsequent upload across the mode
+  transition. The library retained three snippets with no duplicate examples.
+- Same-field draft check: held an unsaved `MacBook same-field edit` template here
+  while Dave saved `Studio same-field edit` on Studio. After a delivery delay,
+  the incoming version appeared in the saved list and the changed-elsewhere banner
+  appeared without replacing the local draft. Explicitly saving here kept the
+  locally edited template. Verified one `;cloudcheck` record and three total
+  snippets in SQLite. This tests overlapping drafts followed by an explicit save,
+  not two disconnected devices racing to upload saved versions.
+- Sleep/wake check: after Dave confirmed Studio was asleep with Textend
+  running, saved `Received after Studio wakes` as the `;cloudcheck` template here.
+  CloudKit logs show the modify-records/export completion at 4:28:16 PM, and the
+  rendered Settings view shows a successful transfer at 4:28 PM. Dave then confirmed
+  the template updated after waking Studio without restarting Textend, and
+  `;cloudcheck` expanded to the new text in TextEdit. The accessibility tree retained an older time;
+  the rendered view was checked to avoid treating that stale value as app state.
+- Added `provisioning.py --install` to validate and install downloaded profiles,
+  preserving superseded copies outside Xcode's search path. Focused review-loop
+  passed after covering same-file reinstallation; 5 provisioning and 16 release
+  guard tests pass. Tests confirm other apps' profiles remain untouched and wrong
+  profile names are rejected before writing.
+
+- Follow-up review-loop corrected the retired-profile archive location: it is now
+  beside the provisioning directory so Xcode does not try to parse it. Pass 2 found
+  no further defects in this installer/package scope. Five provisioning tests,
+  16 release guard tests, launcher syntax, and whitespace checks pass. The extracted
+  ZIP app also passes deep/strict signature verification. Overall sync acceptance
+  still requires the two-Mac scenarios above.
+
+### Final iCloud verification checkpoint
+
+- Two-Mac observations cover initial delivery, live edits both ways, offline edit
+  preservation and eventual delivery, clean/dirty editor refresh, field-level
+  saves, remote deletion recovery, duplicate-keyword suppression and resolution,
+  collection changes, favorites, disable/re-enable with local edits, restart,
+  sleep/wake, and expansion using remotely changed text. Studio observations were
+  reported by Dave; this Mac's results were inspected through native UI and,
+  where relevant, read-only queries of the isolated test store.
+- Delivery sometimes took several minutes. In the first offline-reconnect check,
+  this Mac received the edit after its test preview was relaunched. That run
+  does not establish automatic receiver delivery without relaunch. Subsequent
+  live imports, conflict delivery after reconnect, and sleep/wake succeeded, but
+  do not retroactively remove that limitation.
+- Actual system iCloud account switching was not performed. Account isolation,
+  recovery, and failure behavior are covered by injected-provider tests. Same-field
+  testing covered overlapping drafts with a later explicit save, not simultaneous
+  disconnected uploads. Discard after remote deletion was not exercised natively.
+- Final review-loop completed a clean pass over the cumulative implementation,
+  persistence/account boundaries, UI integration, signing/release changes, test
+  coverage, and these evidence limits. `./script/check.sh` passes 37 Swift tests
+  (35 core and 2 layout) plus 21 Python tests (16 release and 5 provisioning),
+  strict Swift formatting, shell syntax, whitespace checks, and the provisioned
+  development build. Both the final Debug app and the previously verified
+  production artifact pass deep/strict signature verification.
+- Closed only the local development preview after testing. Three disposable
+  snippets remain in the private development library. The production verification
+  fixture remains separate. No source commit, public release, Spaces/feed change,
+  or replacement of the installed 0.1.1 app was performed for this implementation.

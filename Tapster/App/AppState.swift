@@ -10,6 +10,7 @@ enum LibrarySelection: Hashable {
 @MainActor @Observable final class AppState {
   let store: LibraryStore
   let engine = ExpansionEngine()
+  var restartApproved = false
   var scope: LibrarySelection = .all
   var selectedID: UUID?
   var draft: SnippetRecord?
@@ -23,7 +24,7 @@ enum LibrarySelection: Hashable {
   var collectionToEdit: CollectionRecord?
   var showingCollectionSheet = false
 
-  init(store: LibraryStore, seedExamples: Bool = true, startEngine: Bool = true) {
+  init(store: LibraryStore, seedExamples: Bool = false, startEngine: Bool = true) {
     self.store = store
     if seedExamples && !UserDefaults.standard.bool(forKey: "hasCreatedLibrary") {
       do {
@@ -35,7 +36,8 @@ enum LibrarySelection: Hashable {
     {
       load(first)
     }
-    engine.updateSnippets(store.snippets)
+    engine.updateSnippets(store.expansionSnippets)
+    store.onChange = { [weak self] in self?.libraryDidChange() }
     if startEngine { engine.start() }
   }
 
@@ -57,10 +59,51 @@ enum LibrarySelection: Hashable {
     }
   }
 
+  var remoteDraftDeleted: Bool {
+    baseline != nil && !store.snippets.contains { $0.id == baseline?.id }
+  }
+
+  var remoteDraftChanged: Bool {
+    guard isDirty, let baseline,
+      let saved = store.snippets.first(where: { $0.id == baseline.id })
+    else { return false }
+    return saved != baseline
+  }
+
+  var copyError: String? {
+    guard let draft else { return nil }
+    do {
+      try LibraryValidation.validate(draft, among: [draft])
+      return nil
+    } catch { return error.localizedDescription }
+  }
+
+  private func libraryDidChange() {
+    engine.updateSnippets(store.expansionSnippets)
+    if case .collection(let id) = scope, !store.collections.contains(where: { $0.id == id }) {
+      scope = .all
+    }
+    if !isDirty, let selectedID {
+      if let saved = store.snippets.first(where: { $0.id == selectedID }) {
+        load(saved)
+      } else {
+        draft = nil
+        baseline = nil
+        self.selectedID = nil
+      }
+    }
+  }
+
   var draftError: String? {
     guard let draft else { return nil }
     do {
-      try LibraryValidation.validate(draft, among: store.snippets)
+      let proposed: SnippetRecord
+      if let baseline, let remote = store.snippets.first(where: { $0.id == draft.id }) {
+        proposed = draft.mergingChanges(from: baseline, into: remote)
+      } else {
+        proposed = draft
+      }
+      try store.validateSave(proposed)
       return nil
     } catch { return error.localizedDescription }
   }
@@ -105,9 +148,20 @@ enum LibrarySelection: Hashable {
   @discardableResult func save() -> Bool {
     guard let draft else { return true }
     do {
-      try store.save(draft)
+      guard !remoteDraftDeleted else {
+        throw TemplateError.invalid(
+          "This snippet was deleted on another Mac. Save it as a new snippet or discard your draft."
+        )
+      }
+      let record: SnippetRecord
+      if let baseline, let remote = store.snippets.first(where: { $0.id == draft.id }) {
+        record = draft.mergingChanges(from: baseline, into: remote)
+      } else {
+        record = draft
+      }
+      try store.save(record)
       if let saved = store.snippets.first(where: { $0.id == draft.id }) { load(saved) }
-      engine.updateSnippets(store.snippets)
+      engine.updateSnippets(store.expansionSnippets)
       return true
     } catch {
       errorMessage = error.localizedDescription
@@ -222,8 +276,33 @@ enum LibrarySelection: Hashable {
   }
 
   func discardDraft() {
-    draft = baseline
-    selectedID = baseline?.id
+    if let id = baseline?.id, let saved = store.snippets.first(where: { $0.id == id }) {
+      load(saved)
+    } else {
+      draft = nil
+      baseline = nil
+      selectedID = nil
+    }
+  }
+
+  func saveDeletedDraftAsNew() {
+    guard remoteDraftDeleted, var copy = draft else { return }
+    copy.id = UUID()
+    copy.createdAt = Date()
+    if store.snippets.contains(where: { !$0.keyword.isEmpty && $0.keyword == copy.keyword }) {
+      copy.keyword = ""
+    }
+    if !store.collections.contains(where: { $0.id == copy.collectionID }) {
+      copy.collectionID = nil
+    }
+    draft = copy
+    selectedID = copy.id
+    baseline = nil
+    _ = save()
+  }
+
+  func addExamples() {
+    transition { [weak self] in self?.perform { try self?.store.seedExamples() } }
   }
 
   func copyExpandedText() {
@@ -239,7 +318,7 @@ enum LibrarySelection: Hashable {
   func perform(_ action: () throws -> Void) {
     do {
       try action()
-      engine.updateSnippets(store.snippets)
+      engine.updateSnippets(store.expansionSnippets)
     } catch { errorMessage = error.localizedDescription }
   }
 

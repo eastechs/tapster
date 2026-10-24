@@ -16,14 +16,17 @@ struct SnippetListView: View {
       List(selection: Binding(get: { state.selectedID }, set: { state.select($0) })) {
         ForEach(pendingSnippets + state.filteredSnippets) { snippet in
           let isUnsaved = pendingSnippets.first?.id == snippet.id
-          SnippetRow(snippet: snippet, isUnsaved: isUnsaved)
-            .tag(snippet.id)
-            .textendSelection(state.selectedID == snippet.id)
-            .contextMenu {
-              if !isUnsaved {
-                SnippetContextMenu(state: state, snippet: snippet)
-              }
+          SnippetRow(
+            snippet: snippet, isUnsaved: isUnsaved,
+            issue: isUnsaved ? nil : state.store.expansionIssue(for: snippet)
+          )
+          .tag(snippet.id)
+          .textendSelection(state.selectedID == snippet.id)
+          .contextMenu {
+            if !isUnsaved {
+              SnippetContextMenu(state: state, snippet: snippet)
             }
+          }
         }
       }
       .listStyle(.inset)
@@ -45,6 +48,7 @@ struct SnippetListView: View {
 private struct SnippetRow: View {
   var snippet: SnippetRecord
   var isUnsaved = false
+  var issue: String?
   var body: some View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 4) {
@@ -61,6 +65,10 @@ private struct SnippetRow: View {
         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
       }
       Spacer(minLength: 4)
+      if let issue {
+        Image(systemName: "exclamationmark.triangle")
+          .foregroundStyle(.orange).help(issue).accessibilityLabel(issue)
+      }
       if !snippet.keyword.isEmpty {
         Text(snippet.keyword).font(.system(.caption, design: .monospaced))
           .lineLimit(1).truncationMode(.middle)

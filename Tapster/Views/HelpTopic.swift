@@ -20,6 +20,41 @@ struct HelpTopic: Identifiable {
 
   static let all: [HelpTopic] = [
     HelpTopic(
+      id: "icloud", title: "iCloud Sync", symbol: "icloud",
+      summary: "Sync your saved library between Macs using your iCloud account.",
+      sections: [
+        Section(
+          title: "Enable sync",
+          body:
+            "Open Settings → iCloud and enable Sync snippets with iCloud. Your saved local library joins this account’s library after restarting. Resolve any unsaved draft when asked. A fresh library starts empty; File → Add Example Snippets adds starter examples if you want them."
+        ),
+        Section(
+          title: "What syncs",
+          body:
+            "Saved snippets, collections, favorites, enabled states, and placeholder mappings sync. Appearance, expansion delay, excluded applications, permissions, clipboard contents, and unsaved drafts stay on each Mac."
+        ),
+        Section(
+          title: "Offline and activity",
+          body:
+            "Keep editing your local library while offline. iCloud transfers changes when available, so delivery can take time. Last successful transfer reports an observed import or export; it does not mean every Mac has received the changes. Check iCloud Account refreshes account availability, not the transfer schedule."
+        ),
+        Section(
+          title: "Conflicts",
+          body:
+            "CloudKit merges saved edits automatically. Concurrent edits to the same field may overwrite one another. Duplicate keywords pause expansion for all affected snippets until you rename or clear a keyword. You can still copy a valid snippet manually. If a saved snippet changes while you have a draft, saving applies your changed fields while retaining remote changes to untouched fields. A remotely deleted draft can be saved as a new snippet."
+        ),
+        Section(
+          title: "Turn off or change accounts",
+          body:
+            "Turning sync off requires a restart and keeps the downloaded library on this Mac without deleting cloud data. An iCloud account change pauses library editing and expansion until restart. Textend preserves a local copy; enabling another account opens a separate library and does not upload the previous account’s snippets. Export a backup if you deliberately want to transfer snippets between accounts."
+        ),
+        Section(
+          title: "Backups",
+          body:
+            "Use File → Export Backup for a portable JSON copy. Sync is not a substitute for a backup because deletions also sync. Before the V2 migration, Textend creates a local SQLite backup beside its library."
+        ),
+      ]),
+    HelpTopic(
       id: "start", title: "Getting Started", symbol: "sparkles",
       summary: "Turn short keywords into the text you use every day.",
       sections: [
@@ -138,7 +173,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Export a backup",
           body:
-            "Choose File → Export Backup to save your library as a JSON file. Store it somewhere you can find again. Textend stores its library locally; it does not sync snippets between Macs."
+            "Choose File → Export Backup to save your library as a JSON file. Store it somewhere you can find again. Textend keeps a local library. Optional iCloud sync is available in Settings → iCloud; backups remain useful when sync is enabled."
         ),
         Section(
           title: "Import a backup",

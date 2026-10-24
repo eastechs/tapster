@@ -17,6 +17,8 @@ import tempfile
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from provisioning import resolve_profile, validate_profile, CONTAINER
+
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / "build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 ACCOUNT = "chat.eastechs.textend"
@@ -134,9 +136,10 @@ def build_release(args, config):
     check_key()
     if run("git", "status", "--porcelain").stdout.strip():
         raise RuntimeError("Commit source changes before creating a distributable release.")
+    profile, signing_identity = resolve_profile("release")
     identities = run("security", "find-identity", "-v", "-p", "codesigning").stdout
     matches = re.findall(r'\) ([A-F0-9]{40}) "Developer ID Application: [^"]+ \(' + config["team_id"] + r'\)"', identities)
-    if len(matches) != 1:
+    if len(matches) != 1 or matches[0] != signing_identity:
         raise RuntimeError("Expected one Developer ID Application certificate for the configured team.")
     run("xcrun", "notarytool", "history", "--keychain-profile", config["notary_profile"], "--output-format", "json")
     if not args.notes.is_file():
@@ -155,15 +158,26 @@ def build_release(args, config):
         "-disableAutomaticPackageResolution", "-archivePath", archive,
         f"MARKETING_VERSION={args.version}", f"CURRENT_PROJECT_VERSION={args.build}",
         f"DEVELOPMENT_TEAM={config['team_id']}", f"CODE_SIGN_IDENTITY={matches[0]}",
+        f"PROVISIONING_PROFILE_SPECIFIER={profile['UUID']}",
         "ONLY_ACTIVE_ARCH=NO", "ARCHS=arm64 x86_64", "archive")
     options = work / "ExportOptions.plist"
     options.write_bytes(plistlib.dumps({"method": "developer-id", "teamID": config["team_id"],
-                                       "signingStyle": "manual", "signingCertificate": matches[0]}))
+                                       "signingStyle": "manual", "signingCertificate": matches[0],
+                                       "provisioningProfiles": {BUNDLE_ID: profile["UUID"]},
+                                       "iCloudContainerEnvironment": "Production"}))
     print("Exporting and verifying nested signatures…", flush=True)
     run("xcodebuild", "-quiet", "-exportArchive", "-archivePath", archive,
         "-exportOptionsPlist", options, "-exportPath", exported)
     app = exported / "Textend.app"
     validate_bundle(app, args.version, args.build)
+    embedded = plistlib.loads(run("security", "cms", "-D", "-i", app / "Contents/embedded.provisionprofile").stdout.encode())
+    validate_profile(embedded, "release")
+    entitlements = plistlib.loads(run("codesign", "-d", "--entitlements", ":-", app).stdout.encode())
+    if (entitlements.get("com.apple.developer.icloud-container-environment") != "Production"
+            or entitlements.get("com.apple.developer.icloud-container-identifiers") != [CONTAINER]
+            or entitlements.get("com.apple.developer.icloud-services") != ["CloudKit"]
+            or entitlements.get("com.apple.developer.aps-environment") != "production"):
+        raise RuntimeError("Exported app is missing production CloudKit entitlements.")
     run("codesign", "--verify", "--deep", "--strict", app)
     signature = run("codesign", "-dvv", app).stderr
     if f"TeamIdentifier={config['team_id']}" not in signature or "Timestamp=" not in signature:

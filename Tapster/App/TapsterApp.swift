@@ -19,7 +19,8 @@ import SwiftUI
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    state?.confirmUnsavedChanges() == false ? .terminateCancel : .terminateNow
+    if state?.restartApproved == true { return .terminateNow }
+    return state?.confirmUnsavedChanges() == false ? .terminateCancel : .terminateNow
   }
 
   func applicationWillTerminate(_ notification: Notification) { state?.engine.stop() }
@@ -27,15 +28,68 @@ import SwiftUI
 
 @MainActor @Observable final class AppBootstrap {
   var state: AppState?
+  var sync: SyncCoordinator?
   let updater = UpdaterService()
   var error: String?
-  init() { load() }
-  func load() {
+  var loading = false
+  init() { Task { await load() } }
+
+  func load() async {
+    guard !loading else { return }
+    loading = true
+    defer { loading = false }
     do {
-      state = AppState(store: try LibraryStore())
+      let directory = try SyncConfiguration.directory()
+      let defaults = UserDefaults(
+        suiteName: "chat.eastechs.tapster.sync." + directory.lastPathComponent)!
+      let coordinator = try SyncCoordinator(
+        directory: directory,
+        provider: CloudAccountProvider(defaults: defaults), defaults: defaults)
+      #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--initialize-cloudkit-schema") {
+          try await CloudSchemaInitializer.initialize(
+            at: directory.appendingPathComponent("SchemaInitialization.store"))
+        }
+      #endif
+      let library = try await coordinator.openLibrary()
+      let preview = ProcessInfo.processInfo.arguments.contains("--sync-preview")
+      state = AppState(store: library, startEngine: !preview)
+      sync = coordinator
+      coordinator.onRestart = { [weak self] next in self?.restart(using: next) }
       updater.state = state
       error = nil
+      if coordinator.isActive { NSApp.registerForRemoteNotifications() }
     } catch { self.error = error.localizedDescription }
+  }
+
+  private func restart(using next: SyncConfiguration) {
+    guard let state, let sync, state.confirmUnsavedChanges() else { return }
+    do {
+      try sync.commitForRestart(next)
+      let helper = Process()
+      helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+      helper.arguments = [
+        "-c",
+        "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; exec /usr/bin/open \"$2\" --args \"$3\"",
+        "textend-restart", String(ProcessInfo.processInfo.processIdentifier),
+        Bundle.main.bundlePath,
+        ProcessInfo.processInfo.arguments.contains("--sync-preview")
+          ? "--sync-preview" : "--sync-restarted",
+      ]
+      helper.standardOutput = FileHandle.nullDevice
+      helper.standardError = FileHandle.nullDevice
+      try helper.run()
+      state.restartApproved = true
+      sync.stop()
+      NSApp.terminate(nil)
+    } catch {
+      do { try sync.rollbackRestart() } catch {
+        state.errorMessage =
+          "Couldn’t restore the previous sync setting: \(error.localizedDescription)"
+        return
+      }
+      state.errorMessage = error.localizedDescription
+    }
   }
 }
 
@@ -49,9 +103,14 @@ import SwiftUI
         ContentView(state: state).textendTheme().onAppear { delegate.state = state }
       } else {
         VStack(spacing: 16) {
-          Label("Couldn’t Open Your Library", systemImage: "exclamationmark.triangle").font(.title2)
-          Text(bootstrap.error ?? "An unknown storage error occurred.").textSelection(.enabled)
-          Button("Try Again") { bootstrap.load() }
+          if bootstrap.loading {
+            ProgressView("Opening library…")
+          } else {
+            Label("Couldn’t Open Your Library", systemImage: "exclamationmark.triangle").font(
+              .title2)
+            Text(bootstrap.error ?? "An unknown storage error occurred.").textSelection(.enabled)
+            Button("Try Again") { Task { await bootstrap.load() } }
+          }
         }.padding(32).frame(minWidth: 500, minHeight: 300)
       }
     }
@@ -60,7 +119,7 @@ import SwiftUI
 
     Settings {
       if let state = bootstrap.state {
-        SettingsView(state: state, updater: bootstrap.updater).textendTheme()
+        SettingsView(state: state, updater: bootstrap.updater, sync: bootstrap.sync).textendTheme()
       }
     }
 
@@ -131,6 +190,11 @@ private struct TapsterCommands: Commands {
       Divider()
       Button("Import Backup…") { state?.importBackup() }.disabled(state == nil)
       Button("Export Backup…") { state?.exportBackup() }.disabled(state == nil)
+      Divider()
+      Button("Add Example Snippets") { state?.addExamples() }
+        .disabled(
+          state == nil || state?.store.snippets.isEmpty != true
+            || state?.store.collections.isEmpty != true)
     }
     CommandGroup(after: .textEditing) {
       Button(helpSearchAction == nil ? "Find Snippet" : "Search Help") {
@@ -142,7 +206,7 @@ private struct TapsterCommands: Commands {
       Button("Duplicate Snippet") { if let snippet = state?.draft { state?.duplicate(snippet) } }
         .keyboardShortcut("d").disabled(state?.draft == nil)
       Button("Copy Expanded Text") { state?.copyExpandedText() }.disabled(
-        state?.draft == nil || state?.draftError != nil)
+        state?.draft == nil || state?.copyError != nil)
       Button("Delete Snippet") { if let snippet = state?.draft { state?.delete(snippet) } }
         .disabled(state?.draft == nil)
     }
