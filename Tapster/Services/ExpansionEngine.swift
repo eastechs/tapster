@@ -89,7 +89,7 @@ import Observation
       string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
     if !NSWorkspace.shared.open(settingsURL) {
       lastMessage =
-        "Open System Settings → Privacy & Security → Accessibility, then enable Tapster."
+        "Open System Settings → Privacy & Security → Accessibility, then enable Textend."
     }
   }
 
@@ -157,7 +157,7 @@ import Observation
     else {
       status = .permission
       lastMessage =
-        "macOS could not monitor typing. Check Tapster's Accessibility permission, then restart Tapster."
+        "macOS could not monitor typing. Check Textend's Accessibility permission, then restart Textend."
       return
     }
     eventTap = tap

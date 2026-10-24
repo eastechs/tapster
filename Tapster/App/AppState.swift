@@ -207,7 +207,7 @@ enum LibrarySelection: Hashable {
   func exportBackup() {
     let panel = NSSavePanel()
     panel.allowedContentTypes = [.json]
-    panel.nameFieldStringValue = "Tapster-backup.json"
+    panel.nameFieldStringValue = "Textend-backup.json"
     panel.begin { [weak self] response in
       guard response == .OK, let url = panel.url else { return }
       self?.perform {

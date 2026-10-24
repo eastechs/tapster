@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
-bash -n script/build_and_run.sh script/check.sh
+bash -n script/build_and_run.sh script/check.sh script/export_icon.sh
 git diff --check
 swift format lint --strict --recursive Tapster Tests Package.swift
 swift test

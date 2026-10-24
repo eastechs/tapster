@@ -42,7 +42,7 @@ struct SettingsView: View {
           Text("Expansion")
         } footer: {
           Text(
-            "When keywords overlap, Tapster waits briefly for more typing. Other keywords expand immediately. Range: 100–1,000 ms."
+            "When keywords overlap, Textend waits briefly for more typing. Other keywords expand immediately. Range: 100–1,000 ms."
           )
           .font(.caption).foregroundStyle(.secondary)
         }
@@ -56,11 +56,11 @@ struct SettingsView: View {
         }
         Section {
           Toggle(
-            "Launch Tapster at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
+            "Launch Textend at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
         } header: {
           Text("Startup")
         } footer: {
-          Text("Closing the library keeps Tapster in the menu bar. Quit Tapster to stop expansion.")
+          Text("Closing the library keeps Textend in the menu bar. Quit Textend to stop expansion.")
             .font(.caption).foregroundStyle(.secondary)
         }
       }
@@ -79,12 +79,12 @@ struct SettingsView: View {
         } header: {
           Text("Permissions")
         } footer: {
-          Text("Accessibility lets Tapster detect keywords and insert snippets in other apps.")
+          Text("Accessibility lets Textend detect keywords and insert snippets in other apps.")
             .font(.caption).foregroundStyle(.secondary)
         }
         Section {
           Text(
-            "Typing context stays in memory and is cleared when focus changes. Tapster does not store typing history. Protected input is never expanded."
+            "Typing context stays in memory and is cleared when focus changes. Textend does not store typing history. Protected input is never expanded."
           )
           .font(.callout).foregroundStyle(.secondary)
         } header: {
@@ -114,7 +114,7 @@ struct SettingsView: View {
         } header: {
           Text("Excluded Applications")
         } footer: {
-          Text("Tapster's editor is always excluded.").font(.caption).foregroundStyle(.secondary)
+          Text("Textend's editor is always excluded.").font(.caption).foregroundStyle(.secondary)
         }
       }
       .tabItem { Label("Excluded Apps", systemImage: "app.badge") }

@@ -35,7 +35,7 @@ import SwiftUI
   @State private var bootstrap = AppBootstrap()
 
   var body: some Scene {
-    WindowGroup("Tapster", id: "library") {
+    WindowGroup("Textend", id: "library") {
       if let state = bootstrap.state {
         ContentView(state: state).onAppear { delegate.state = state }
       } else {
@@ -53,7 +53,7 @@ import SwiftUI
       if let state = bootstrap.state { SettingsView(state: state) }
     }
 
-    MenuBarExtra("Tapster", systemImage: "text.insert") {
+    MenuBarExtra("Textend", systemImage: "text.insert") {
       if let state = bootstrap.state {
         MenuBarContent(state: state)
       } else {
@@ -69,7 +69,7 @@ private struct MenuBarContent: View {
   var body: some View {
     Text(state.engine.status.rawValue)
     Divider()
-    Button("Open Tapster") {
+    Button("Open Textend") {
       if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "tapster-library" }) {
         window.makeKeyAndOrderFront(nil)
       } else {
@@ -82,7 +82,7 @@ private struct MenuBarContent: View {
     }
     SettingsLink { Text("Settings…") }
     Divider()
-    Button("Quit Tapster", action: state.requestQuit).keyboardShortcut("q")
+    Button("Quit Textend", action: state.requestQuit).keyboardShortcut("q")
   }
 }
 

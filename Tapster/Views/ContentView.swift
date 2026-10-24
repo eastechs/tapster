@@ -45,7 +45,7 @@ struct ContentView: View {
         Text("Your changes have not been saved.")
       }
       .alert(
-        "Tapster",
+        "Textend",
         isPresented: Binding(
           get: { state.errorMessage != nil }, set: { if !$0 { state.errorMessage = nil } })
       ) {

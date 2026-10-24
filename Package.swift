@@ -7,7 +7,8 @@ let package = Package(
   products: [.library(name: "TapsterCore", targets: ["TapsterCore"])],
   targets: [
     .target(
-      name: "TapsterCore", path: "Tapster", exclude: ["App/TapsterApp.swift", "Support", "Views"],
+      name: "TapsterCore", path: "Tapster",
+      exclude: ["App/TapsterApp.swift", "Support", "Views", "Resources"],
       sources: [
         "Core", "Models", "Stores", "Services", "App/AppState.swift",
         "App/EditorDraftBinding.swift",

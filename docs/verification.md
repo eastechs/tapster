@@ -58,3 +58,11 @@ Dave reports that the app is mostly working after the permission and editor cras
 Tapster is left running with its original four saved snippets and Expansion active. No signed release or notarized distribution has been produced.
 
 Run `./script/check.sh` to repeat formatting, tests, and the Xcode build. The Codex Run action launches through `./script/build_and_run.sh`.
+
+## Textend rename and X2 icon (2026-10-23)
+
+- Created the X2 Continuous mark as two vector ribbon layers, assembled in Icon Composer, and saved the editable `Tapster/Resources/Textend.icon` document. Exported the 1024-pixel PNG with Icon Composer's renderer; `script/export_icon.sh` reproduces it. Default, Dark, and TintedDark renders were visually inspected.
+- Renamed the built product, app/window/menu labels, Settings copy, and backup filename to Textend. Retained the existing bundle identifier, Swift module, persistence schema, store location, and preference keys.
+- `script/check.sh` passed: formatting, shell syntax, whitespace, 29 tests (27 core and 2 layout), and the development-signed Xcode build. Verified the bundle's Textend metadata, compiled `Assets.car` and compatibility `Textend.icns`, and signature with `codesign --verify --strict`.
+- Inspected the running Textend app: all four existing snippets and both collections were present, expansion was active, the delay remained 500 ms, and launch at login remained off. Cross-app typing and older macOS runtime compatibility were not re-tested for this branding change.
+- Review-loop iteration 2 was clean after correcting Package.swift line wrapping. Reviewed the rename, stable identity, build/run paths, export script, and icon source consistency. No commit or release was produced.
