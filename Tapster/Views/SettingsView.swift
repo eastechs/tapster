@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
   @Bindable var state: AppState
+  var updater: UpdaterService
   @AppStorage("debounceMilliseconds") private var delay = 250
   @State private var delayText = "250"
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -118,6 +119,8 @@ struct SettingsView: View {
         }
       }
       .tabItem { Label("Excluded Apps", systemImage: "app.badge") }
+      UpdateSettingsView(updater: updater)
+        .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
     }
     .formStyle(.grouped)
     .controlSize(.regular)

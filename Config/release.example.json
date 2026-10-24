@@ -1,0 +1,8 @@
+{
+  "team_id": "VK288Z42NG",
+  "notary_profile": "textend-notary",
+  "spaces_endpoint": "https://atl1.digitaloceanspaces.com",
+  "spaces_bucket": "textend-releases",
+  "spaces_prefix": "macos",
+  "aws_profile": "textend-spaces"
+}

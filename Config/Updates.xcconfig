@@ -1,0 +1,3 @@
+// Public values only. The Ed25519 private key stays in the login Keychain.
+TEXTEND_SPARKLE_PUBLIC_KEY = XOIdlCaQ1KApREFbU1JvYVKGNJKe/iffeLb85aTx7n0=
+TEXTEND_UPDATE_FEED_URL = https:/$()/cdn.usetextend.com/macos/appcast.xml

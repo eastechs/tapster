@@ -20,11 +20,13 @@ import SwiftUI
 
 @MainActor @Observable final class AppBootstrap {
   var state: AppState?
+  let updater = UpdaterService()
   var error: String?
   init() { load() }
   func load() {
     do {
       state = AppState(store: try LibraryStore())
+      updater.state = state
       error = nil
     } catch { self.error = error.localizedDescription }
   }
@@ -47,15 +49,15 @@ import SwiftUI
       }
     }
     .defaultSize(width: 1320, height: 780)
-    .commands { TapsterCommands(state: bootstrap.state) }
+    .commands { TapsterCommands(state: bootstrap.state, updater: bootstrap.updater) }
 
     Settings {
-      if let state = bootstrap.state { SettingsView(state: state) }
+      if let state = bootstrap.state { SettingsView(state: state, updater: bootstrap.updater) }
     }
 
     MenuBarExtra("Textend", systemImage: "text.insert") {
       if let state = bootstrap.state {
-        MenuBarContent(state: state)
+        MenuBarContent(state: state, updater: bootstrap.updater)
       } else {
         Text("Library unavailable")
       }
@@ -65,6 +67,7 @@ import SwiftUI
 
 private struct MenuBarContent: View {
   var state: AppState
+  var updater: UpdaterService
   @Environment(\.openWindow) private var openWindow
   var body: some View {
     Text(state.engine.status.rawValue)
@@ -81,6 +84,7 @@ private struct MenuBarContent: View {
       state.engine.setEnabled(!state.engine.isEnabled, requestPermission: true)
     }
     SettingsLink { Text("Settings…") }
+    CheckForUpdatesButton(updater: updater)
     Divider()
     Button("Quit Textend", action: state.requestQuit).keyboardShortcut("q")
   }
@@ -88,7 +92,11 @@ private struct MenuBarContent: View {
 
 private struct TapsterCommands: Commands {
   var state: AppState?
+  var updater: UpdaterService
   var body: some Commands {
+    CommandGroup(after: .appInfo) {
+      CheckForUpdatesButton(updater: updater)
+    }
     CommandGroup(replacing: .newItem) {
       Button("New Snippet") { state?.newSnippet() }.keyboardShortcut("n").disabled(state == nil)
       Button("New Collection…") { state?.editCollection(nil) }.keyboardShortcut(

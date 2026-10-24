@@ -1,0 +1,2 @@
+# Local S3-compatible upload client. No hosted build service is used.
+awscli==1.46.2

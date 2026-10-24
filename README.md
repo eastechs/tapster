@@ -49,3 +49,9 @@ Run `./script/export_icon.sh` to regenerate the 1024-pixel PNG using Icon Compos
 The X2 Continuous icon is an editable Icon Composer document at `Tapster/Resources/Textend.icon`. Its two SVG ribbon layers are also in `docs/design/textend/`. Xcode compiles the layered icon and the macOS compatibility icon into Textend.app.
 
 The app retains `chat.eastechs.tapster`, the Tapster Swift module, and its existing store/preferences keys so the rename preserves the library and app identity. Project and scheme names remain Tapster; the built product and visible app name are Textend.
+
+## Automatic updates and releases
+
+Textend uses Sparkle for directly distributed releases. The app menu and menu bar offer Check for Updates, and Settings → Updates controls automatic checking and installation. Updates are disabled in Debug builds.
+
+See [local releases](docs/releases.md) for the local build, Developer ID signing, notarization, and DigitalOcean Spaces upload commands. The update feed is `https://cdn.usetextend.com/macos/appcast.xml`. No CI service is required.

@@ -5,3 +5,5 @@ dist/
 *.xcuserstate
 xcuserdata/
 .swiftpm/
+Config/release.local.json
+__pycache__/
