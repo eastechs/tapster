@@ -144,7 +144,7 @@ def build_release(args, config):
     output = ROOT / "dist" / f"{args.version}-{args.build}"
     if output.exists():
         raise RuntimeError(f"Release output already exists: {output}. Use a new build number.")
-    work = ROOT / "build/releases" / f"{args.version}-{args.build}"
+    work = ROOT / "build/releases.noindex" / f"{args.version}-{args.build}"
     work.mkdir(parents=True, exist_ok=True)
     archive = work / "Textend.xcarchive"
     exported = work / "export"

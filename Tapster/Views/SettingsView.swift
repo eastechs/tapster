@@ -67,6 +67,9 @@ struct SettingsView: View {
       }
       .tabItem { Label("General", systemImage: "gearshape") }
 
+      AppearanceSettingsView()
+        .tabItem { Label("Appearance", systemImage: "circle.lefthalf.filled") }
+
       Form {
         Section {
           LabeledContent(

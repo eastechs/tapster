@@ -1,0 +1,195 @@
+import Foundation
+
+struct HelpTopic: Identifiable {
+  struct Section: Identifiable {
+    var title: String
+    var body: String
+    var example: String? = nil
+    var id: String { title }
+  }
+
+  var id: String
+  var title: String
+  var symbol: String
+  var summary: String
+  var sections: [Section]
+  var searchText: String {
+    ([title, summary] + sections.flatMap { [$0.title, $0.body, $0.example ?? ""] })
+      .joined(separator: "\n")
+  }
+
+  static let all: [HelpTopic] = [
+    HelpTopic(
+      id: "start", title: "Getting Started", symbol: "sparkles",
+      summary: "Turn short keywords into the text you use every day.",
+      sections: [
+        Section(
+          title: "Create your first snippet",
+          body:
+            "Choose File → New Snippet (⌘N). Give it a name, enter a keyword such as :hello, and write your text in Template. Keep Expansion enabled, then save with ⌘S.",
+          example: "Name: Greeting\nKeyword: :hello\nTemplate: Hello! Thanks for getting in touch."),
+        Section(
+          title: "Enable expansion",
+          body:
+            "Open Settings → General and enable text expansion. Allow Textend in System Settings → Privacy & Security → Accessibility when prompted. You can still manage and copy snippets without this permission."
+        ),
+        Section(
+          title: "Try it",
+          body:
+            "Type your saved keyword in Settings → General → Try Expansion, or in a supported text field such as a TextEdit document. The library editor itself is excluded. Textend inserts text without pressing Return or executing commands."
+        ),
+        Section(
+          title: "Keep Textend available",
+          body:
+            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library or pause expansion. Quit Textend to stop it completely. Launch at login is optional in Settings → General."
+        ),
+      ]),
+    HelpTopic(
+      id: "keywords", title: "Keywords & Timing", symbol: "keyboard",
+      summary: "Control when a keyword expands and how overlapping keywords behave.",
+      sections: [
+        Section(
+          title: "Choose a keyword",
+          body:
+            "Keywords are case-sensitive and match at a word start, not inside a longer word. Exact duplicate keywords cannot be saved. Leave the keyword empty if you only want to copy the snippet manually."
+        ),
+        Section(
+          title: "Overlapping keywords",
+          body:
+            "If you have gc and gco, typing gc starts a short delay. Type o before the delay ends to expand gco instead. Pausing too long expands gc first. A keyword with no longer alternatives expands immediately."
+        ),
+        Section(
+          title: "Tune the delay",
+          body:
+            "Settings → General → Ambiguous keyword delay accepts 100 to 1,000 milliseconds in 50 ms steps. The default is 250 ms. Increase it if a shorter keyword expands before you finish typing a longer one."
+        ),
+        Section(
+          title: "Cancel a pending match",
+          body:
+            "Backspace, moving the caret, switching fields or apps, shortcuts, and pausing expansion cancel a pending match. Typing an incomplete or unrelated continuation leaves the typed text unchanged instead of expanding a shorter prefix."
+        ),
+      ]),
+    HelpTopic(
+      id: "placeholders", title: "Placeholders", symbol: "curlybraces",
+      summary: "Add clipboard text and dates to a plain-text template.",
+      sections: [
+        Section(
+          title: "Insert a value",
+          body:
+            "Use Insert Placeholder to choose Clipboard or Date & Time and give the placeholder a name. You can also type {name} and choose its source below the template. Names start with a letter or underscore and contain letters, numbers, or underscores. Repeated names share one source."
+        ),
+        Section(
+          title: "Use the clipboard",
+          body:
+            "Copy the value you want before expanding. If the clipboard has no text, Textend leaves the keyword unchanged. Clipboard text is inserted literally, including any braces it contains.",
+          example:
+            "Template: git commit {commit_message}\nSource: commit_message → Clipboard\nClipboard: Fix login redirect\nResult: git commit Fix login redirect"
+        ),
+        Section(
+          title: "Format a date",
+          body:
+            "Date & Time uses your current time zone. Enter a format and check the live example. yyyy-MM-dd produces a date such as 2026-10-24; HH:mm adds 24-hour time."
+        ),
+        Section(
+          title: "Literal braces and preview",
+          body:
+            "Write {{ and }} for literal braces. Fix unmatched braces and missing sources before saving. The Preview panel uses sample clipboard text; Copy Expanded Text uses your actual clipboard. Textend does not add quotes, command flags, or escaping."
+        ),
+      ]),
+    HelpTopic(
+      id: "organize", title: "Organize Snippets", symbol: "folder",
+      summary: "Use collections, favorites, and search to find your snippets.",
+      sections: [
+        Section(
+          title: "Collections",
+          body:
+            "Click New Collection at the bottom of the sidebar or use ⇧⌘N. Assign a snippet using its Collection menu. Control-click a collection to rename or delete it. Deleting a collection keeps its snippets in All Snippets."
+        ),
+        Section(
+          title: "Favorites and search",
+          body:
+            "Use the star beside a snippet’s title to mark it as a favorite, then save. Favorites appear in the sidebar filter. Search matches snippet names, keywords, and templates. Press ⌘F in the library to focus search."
+        ),
+        Section(
+          title: "Save your changes",
+          body:
+            "Changes stay in a draft until you save. Switching away from an edited snippet offers Save, Discard, or Cancel. Control-click a snippet for actions such as Duplicate, Move to Collection, or Delete. A duplicate starts without a keyword to avoid conflicts."
+        ),
+      ]),
+    HelpTopic(
+      id: "appearance", title: "Appearance", symbol: "circle.lefthalf.filled",
+      summary: "Choose how Textend looks without changing your Mac’s settings.",
+      sections: [
+        Section(
+          title: "System, Light, or Dark",
+          body:
+            "Open Settings → Appearance. System follows your Mac’s appearance; Light and Dark keep Textend in that mode. The choice applies to the library, Settings, Help, and app panels, and is remembered when you reopen Textend."
+        ),
+        Section(
+          title: "Accent color",
+          body:
+            "Choose Blue, Purple, Pink, Red, Orange, Yellow, Green, or Graphite. Controls, sidebar icons, input borders, and placeholder highlights update immediately. Native selection highlights and window controls continue to use your macOS accent color."
+        ),
+      ]),
+    HelpTopic(
+      id: "backups", title: "Backups & Updates", symbol: "externaldrive",
+      summary: "Keep a copy of your library and manage app updates.",
+      sections: [
+        Section(
+          title: "Export a backup",
+          body:
+            "Choose File → Export Backup to save your library as a JSON file. Store it somewhere you can find again. Textend stores its library locally; it does not sync snippets between Macs."
+        ),
+        Section(
+          title: "Import a backup",
+          body:
+            "Choose File → Import Backup. Import adds the contents to your existing library. Conflicting identifiers or exact duplicate keywords reject the whole import, so a rejected backup does not partially change your library."
+        ),
+        Section(
+          title: "Check for updates",
+          body:
+            "Use Textend → Check for Updates or the menu bar command. Settings → Updates controls automatic checks and installation. Development builds disable updates. An update that needs to restart Textend asks you to resolve unsaved snippet changes first."
+        ),
+      ]),
+    HelpTopic(
+      id: "troubleshooting", title: "Troubleshooting", symbol: "wrench.and.screwdriver",
+      summary: "Start here if a saved keyword does not expand.",
+      sections: [
+        Section(
+          title: "Check the basics",
+          body:
+            "Make sure Textend is running, expansion is active, the snippet is saved and enabled, and its keyword matches exactly. If it uses Clipboard, copy some text first. Try the same keyword in Settings → General → Try Expansion."
+        ),
+        Section(
+          title: "Check permissions",
+          body:
+            "Settings → Permissions shows Accessibility status and opens the corresponding system settings. If a replaced or differently signed app appears enabled but still cannot expand, remove its old Accessibility entry and add the current Textend app again."
+        ),
+        Section(
+          title: "Check the target app",
+          body:
+            "Look under Settings → Excluded Apps. Password fields and Secure Input are not expanded. Composition input methods and some editors cannot be tracked reliably, so expansion pauses there. Test in a plain TextEdit document to narrow down an app-specific issue."
+        ),
+        Section(
+          title: "A shorter keyword expands too soon",
+          body:
+            "Increase the ambiguous keyword delay in Settings → General, or use keywords that do not share a prefix. The delay only applies when a saved, enabled longer keyword exists."
+        ),
+      ]),
+    HelpTopic(
+      id: "shortcuts", title: "Keyboard Shortcuts", symbol: "command",
+      summary: "Common actions are available from the keyboard.",
+      sections: [
+        Section(
+          title: "Library",
+          body:
+            "⌘N  New snippet\n⇧⌘N  New collection\n⌘S  Save snippet\n⌘D  Duplicate snippet\n⌘F  Find snippet"
+        ),
+        Section(
+          title: "App and editing",
+          body:
+            "⌘,  Settings\n⌘F  Search Help while this window is active\n⌘Z  Undo\n⇧⌘Z  Redo\n⌘Q  Quit Textend"
+        ),
+      ]),
+  ]
+}

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
   @Bindable var state: AppState
+  @Environment(\.textendAccent) private var accent
 
   var body: some View {
     VStack(spacing: 0) {
@@ -20,12 +21,15 @@ struct SidebarView: View {
             Image(systemName: "doc.text")
           }
           .tag(LibrarySelection.all)
+          .listItemTint(accent.color)
           Label("Favorites", systemImage: "star").tag(LibrarySelection.favorites)
+            .listItemTint(accent.color)
         }
         Section("Collections") {
           ForEach(state.store.collections) { collection in
             Label(collection.name, systemImage: "folder")
               .tag(LibrarySelection.collection(collection.id))
+              .listItemTint(accent.color)
               .contextMenu {
                 Button("Rename Collection…") { state.editCollection(collection) }
                 Button("Delete Collection", role: .destructive) {

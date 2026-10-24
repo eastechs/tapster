@@ -83,3 +83,24 @@ Run `./script/check.sh` to repeat formatting, tests, and the Xcode build. The Co
 - The local AWS CLI reports that `textend-spaces` is not configured. Upload credentials remain the next setup step. No notarization submission, upload, or publication was performed.
 - Focused review-loop passed its first iteration: reviewed configuration and documentation, validated the local configuration and Git ignore rule, and reran all 14 release guard tests plus whitespace checks. Application code is unchanged from the previous verified build.
 - After Dave saved the Spaces credentials, authenticated bucket access and listing of `macos/` succeeded. The prefix was empty, and the origin appcast was absent. Both public appcast URLs still returned HTTP 403. Read access is verified; upload permissions and actual update delivery remain untested. No objects were uploaded.
+
+## Spotlight duplicates and About attribution (2026-10-24)
+
+- Spotlight indexed the Debug app, the Release test build, and the exported validation app. Unregistered the two test copies and moved their generated folders into `build/retired-builds.noindex/`, preserving the files. After indexing caught up, `mdfind` returned only the Debug app for Textend's bundle identifier.
+- Future release archives and exports now stage under `build/releases.noindex/` to avoid adding duplicate app results. The development app path and saved library remain unchanged.
+- Added `Built by Dave Sebek. Copyright Eastechs 2026` through the native About panel's `NSHumanReadableCopyright` metadata. Verified the built plist and visually inspected the full text in the running About panel. Expansion remains active and the four saved snippets are present.
+- Focused review-loop passed its first iteration: reviewed the metadata and staging-path changes against existing conventions, validated the plist and whitespace, built the app, and passed all 14 release guard tests. No release was published.
+
+## Accent color setting (2026-10-24)
+
+- Added a native accent picker under Settings → General → Appearance with eight Apple system colors, persisted with AppStorage. Each independent SwiftUI hosting root observes the preference, including the toolbar content. Theme updates preserve view identity, pane geometry, and drafts.
+- Template placeholder attributes refresh when the accent changes without replacing the text. Custom input focus borders and native sidebar icons use the same preference. macOS still controls native selection highlights, Settings toolbar icons, and system focus rings; the Settings footer explains this boundary.
+- Inspected Blue, Purple, and Green in the running app, immediate control/icon/placeholder updates, a purple search focus border, template typing and Undo, and persistence of Purple across relaunch. Restored Blue and left the final Settings screen open. The original four snippets remain, expansion is active, and the delay remains 500 ms. Dark appearance was not visually checked.
+- Review-loop was clean on its second pass after adding explicit native sidebar item tinting. Reviewed preference propagation through AppKit hosts, editor highlighting and undo behavior, accessibility labels, and existing native layout conventions. `script/check.sh` passed all 43 tests, formatting, shell syntax, whitespace, and the Debug build. No commit or publication was performed.
+
+## In-app Help and appearance override (2026-10-24)
+
+- Help → Textend Help opens a single native, searchable offline guide with eight topics. Search covers article text and examples; Command-F targets Help search when that window is active. Reviewed the content against the actual settings, resolver, and library commands.
+- Moved the accent picker into a dedicated Settings → Appearance tab alongside System, Light, and Dark. The persisted override uses `NSApplication.appearance` and is restored before app launch finishes, covering SwiftUI and AppKit windows without changing macOS settings.
+- Inspected Help, Settings, and the library in the running app. Verified Help menu opening, article filtering, Command-F, empty results, Dark rendering, explicit Light rendering, and Dark persistence after relaunch. Restored System appearance and Blue accent. Help remains open for review.
+- Review-loop finished clean on pass two after aligning Help sidebar tinting with the library and removing a redundant Help shortcut. Checked the full diff, native view conventions, preference propagation, document accuracy, and search edge cases. `script/check.sh` passed 29 Swift tests, 14 release tests, formatting, shell syntax, whitespace, and the Debug build. The initial sandboxed run could not write the Swift cache; rerunning with approved cache access passed. No commit or release publication was performed.

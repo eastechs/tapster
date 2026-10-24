@@ -30,6 +30,10 @@ Protected input is excluded. Composition input methods and editors that do not e
 
 Use File → Export Backup to save a versioned JSON backup. Import adds a validated backup atomically and rejects conflicting identifiers or exact duplicate keywords. Deleting a collection retains its snippets.
 
+Settings → Appearance offers System, Light, and Dark modes, plus an accent color selector. Blue, Purple, Pink, Red, Orange, Yellow, Green, and Graphite use Apple's adaptive system colors. Choices update immediately and persist across launches. Native list selections and window controls continue to use the macOS accent color.
+
+Help → Textend Help opens a searchable offline guide covering setup, keywords and timing, placeholders, collections, appearance, backups and updates, troubleshooting, and keyboard shortcuts. Press ⌘F in the Help window to search.
+
 ## Tests
 
 ```sh

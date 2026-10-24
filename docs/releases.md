@@ -84,7 +84,8 @@ The notes file is supplied by you for that release. The command:
 6. Generates and verifies a signed appcast using Sparkle's own tools, with embedded
    release notes. Produces `dist/0.1.0-2/` containing the ZIP, appcast, and hash manifest.
 
-The archive and notarization record stay under `build/releases/`. Failed operations
+The archive and notarization record stay under `build/releases.noindex/`, keeping
+staging copies of Textend out of Spotlight. Failed operations
 stop before producing a prepared release. A failed notarization can be investigated
 with its saved submission ID and `xcrun notarytool log`. Re-running `build` rebuilds
 and resubmits; there is no automatic retry or background publication.

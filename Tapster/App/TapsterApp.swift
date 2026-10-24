@@ -4,6 +4,13 @@ import SwiftUI
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
   weak var state: AppState?
 
+  func applicationWillFinishLaunching(_ notification: Notification) {
+    let appearance =
+      AppAppearance(
+        rawValue: UserDefaults.standard.string(forKey: "textendAppearance") ?? "system") ?? .system
+    appearance.apply()
+  }
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
@@ -39,7 +46,7 @@ import SwiftUI
   var body: some Scene {
     WindowGroup("Textend", id: "library") {
       if let state = bootstrap.state {
-        ContentView(state: state).onAppear { delegate.state = state }
+        ContentView(state: state).textendTheme().onAppear { delegate.state = state }
       } else {
         VStack(spacing: 16) {
           Label("Couldn’t Open Your Library", systemImage: "exclamationmark.triangle").font(.title2)
@@ -52,12 +59,19 @@ import SwiftUI
     .commands { TapsterCommands(state: bootstrap.state, updater: bootstrap.updater) }
 
     Settings {
-      if let state = bootstrap.state { SettingsView(state: state, updater: bootstrap.updater) }
+      if let state = bootstrap.state {
+        SettingsView(state: state, updater: bootstrap.updater).textendTheme()
+      }
     }
+
+    Window("Textend Help", id: "help") {
+      HelpView().textendTheme()
+    }
+    .defaultSize(width: 860, height: 600)
 
     MenuBarExtra("Textend", systemImage: "text.insert") {
       if let state = bootstrap.state {
-        MenuBarContent(state: state, updater: bootstrap.updater)
+        MenuBarContent(state: state, updater: bootstrap.updater).textendTheme()
       } else {
         Text("Library unavailable")
       }
@@ -93,7 +107,15 @@ private struct MenuBarContent: View {
 private struct TapsterCommands: Commands {
   var state: AppState?
   var updater: UpdaterService
+  @Environment(\.openWindow) private var openWindow
+  @FocusedValue(\.helpSearchAction) private var helpSearchAction
   var body: some Commands {
+    CommandGroup(replacing: .help) {
+      Button("Textend Help") {
+        openWindow(id: "help")
+        NSApp.activate(ignoringOtherApps: true)
+      }
+    }
     CommandGroup(after: .appInfo) {
       CheckForUpdatesButton(updater: updater)
     }
@@ -111,8 +133,10 @@ private struct TapsterCommands: Commands {
       Button("Export Backup…") { state?.exportBackup() }.disabled(state == nil)
     }
     CommandGroup(after: .textEditing) {
-      Button("Find Snippet") { state?.isSearchFocused.toggle() }.keyboardShortcut("f").disabled(
-        state == nil)
+      Button(helpSearchAction == nil ? "Find Snippet" : "Search Help") {
+        if let helpSearchAction { helpSearchAction() } else { state?.isSearchFocused.toggle() }
+      }
+      .keyboardShortcut("f").disabled(state == nil && helpSearchAction == nil)
     }
     CommandMenu("Snippet") {
       Button("Duplicate Snippet") { if let snippet = state?.draft { state?.duplicate(snippet) } }

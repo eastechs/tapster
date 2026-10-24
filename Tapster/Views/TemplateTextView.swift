@@ -8,6 +8,7 @@ struct PlaceholderInsertion: Identifiable {
 
 struct TemplateTextView: NSViewRepresentable {
   @Binding var text: String
+  @Environment(\.textendAccent) private var accent
   var insertion: PlaceholderInsertion?
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -43,13 +44,14 @@ struct TemplateTextView: NSViewRepresentable {
   func updateNSView(_ scroll: NSScrollView, context: Context) {
     context.coordinator.parent = self
     guard let view = scroll.documentView as? NSTextView else { return }
+    let needsHighlight = view.string != text || context.coordinator.lastAccent != accent
     if view.string != text {
       let selection = view.selectedRange()
       view.string = text
       view.setSelectedRange(
         NSRange(location: min(selection.location, (text as NSString).length), length: 0))
-      context.coordinator.highlight(view)
     }
+    if needsHighlight { context.coordinator.highlight(view) }
     if let insertion, context.coordinator.lastInsertion != insertion.id {
       context.coordinator.lastInsertion = insertion.id
       view.window?.makeFirstResponder(view)
@@ -60,6 +62,7 @@ struct TemplateTextView: NSViewRepresentable {
   @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
     var parent: TemplateTextView
     var lastInsertion: UUID?
+    var lastAccent: AppAccent?
     init(_ parent: TemplateTextView) { self.parent = parent }
 
     func textDidChange(_ notification: Notification) {
@@ -78,6 +81,7 @@ struct TemplateTextView: NSViewRepresentable {
 
     func highlight(_ view: NSTextView) {
       guard let storage = view.textStorage else { return }
+      lastAccent = parent.accent
       let range = NSRange(location: 0, length: storage.length)
       storage.beginEditing()
       storage.addAttributes(
@@ -92,8 +96,8 @@ struct TemplateTextView: NSViewRepresentable {
         for match in expression.matches(in: view.string, range: range) {
           storage.addAttributes(
             [
-              .foregroundColor: NSColor.controlAccentColor,
-              .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.1),
+              .foregroundColor: parent.accent.nsColor,
+              .backgroundColor: parent.accent.nsColor.withAlphaComponent(0.1),
             ], range: match.range)
         }
       }

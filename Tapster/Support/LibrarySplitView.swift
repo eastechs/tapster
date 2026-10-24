@@ -102,8 +102,8 @@ struct LibrarySplitView: NSViewControllerRepresentable {
     window.toolbar = libraryToolbar
   }
 
-  private func host<Content: View>(_ content: Content) -> NSHostingController<Content> {
-    let controller = NSHostingController(rootView: content)
+  private func host<Content: View>(_ content: Content) -> NSHostingController<some View> {
+    let controller = NSHostingController(rootView: content.textendTheme())
     controller.sizingOptions = []
     return controller
   }
@@ -176,7 +176,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
   ) -> NSToolbarItem {
     let item = NSToolbarItem(itemIdentifier: identifier)
     item.label = label
-    let view = NSHostingView(rootView: content)
+    let view = NSHostingView(rootView: content.textendTheme())
     view.sizingOptions = []
     let preferredWidth = view.widthAnchor.constraint(equalToConstant: preferred)
     preferredWidth.priority = .defaultLow
