@@ -354,3 +354,152 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   snippets remain in the private development library. The production verification
   fixture remains separate. No source commit, public release, Spaces/feed change,
   or replacement of the installed 0.1.1 app was performed for this implementation.
+
+## Header favorite and optional Dock icon (2026-10-24)
+
+- Moved the favorite control before the snippet title. Inspected the header and
+  the new General → App Behavior setting in the isolated development preview.
+- Turning off “Show Textend in the Dock” immediately changes the running app to
+  AppKit's accessory activation policy. A quit/relaunch retained that policy and
+  the off switch value. Turning it back on restored the regular policy. Settings
+  remained usable throughout. Restored Dock visibility to on after checking.
+- The menu bar extra remains unconditional; its unavailable-library state now
+  also provides Quit. Direct menu bar icon clicks were not verified because the
+  native inspection surface did not expose the status item. Window-close and
+  reopen behavior through that item still needs a physical check.
+- The provisioned Debug build, strict Swift formatting, whitespace checks, and
+  both layout regression tests pass. Review-loop checked preference defaults,
+  persistence, failed-policy handling, menu availability, and header layout.
+- No installed release replacement, publication, commit, or push performed.
+
+### Dock transition and duplicate-window follow-up
+
+- Dave reported that hiding the Dock icon hid open windows and that reopening
+  once produced multiple library tabs. The first implementation restored only
+  the key window synchronously; the library also used a multi-window scene and
+  a custom window-identifier lookup that could miss an existing SwiftUI window.
+- Dock changes now capture the visible, non-minimized windows and restore them
+  in their existing order on the next main-queue turn, after unhiding the app.
+  The library uses a unique SwiftUI `Window`; menu bar opening targets that
+  scene directly. Automatic window tabbing is disabled, and SwiftUI retains
+  ownership of the window identifier.
+- Native inspection of the rebuilt preview confirmed both library and Settings
+  stay on screen through regular → accessory mode with the same window IDs,
+  sizes, and positions. Closing the library leaves the app running with no
+  visible windows; reactivation reuses the original library window. Window menu
+  inspection shows no tab controls. The inspection tool itself reactivates the
+  app, so `swift script/window_state.swift` now provides reusable, read-only
+  visibility diagnostics without bringing windows forward.
+- The earlier disappearance was not reproduced through the inspection tool.
+  Direct physical menu bar reopening remains to be confirmed by Dave. No claim
+  is made that this tool-driven check reproduces his original interaction.
+- Provisioned Debug build, both layout regression tests, strict formatting, and
+  whitespace checks passed. Review-loop iteration 1 was clean after checking
+  single-window reuse, asynchronous restoration, minimized-window exclusion,
+  unsaved-draft close handling, and the cumulative diff. Dock visibility was
+  restored to on; launch-at-login and saved snippets were left unchanged.
+
+### Preventing the Dock-transition flash
+
+- Dave's physical retest invalidated the preceding restoration workaround:
+  windows flashed out and back, and a later toggle left them hidden. Removed
+  all window reordering from that transition. `DockVisibility` now temporarily
+  protects existing windows with AppKit's `canHide` and `hidesOnDeactivate`
+  properties before changing policy, then restores their original properties
+  after deferred activation work. Startup uses the same helper. Stale cleanup
+  callbacks cannot overwrite a later transition's protection.
+- Process inspection confirmed the reported two status icons belonged to the
+  installed release and development preview. Quit the installed release without
+  replacing it. A subsequent rebuild also yielded two development processes,
+  one without preview arguments. Quit the extra process and added a post-build
+  running-process guard before the preview's `open -n` call. Its exact launch
+  source was not established. Only one preview process remained after the final
+  rebuild, PID 81399, accessory policy, library window visible.
+- Added an AppKit regression test for repeated and back-to-back policy changes,
+  visible-window preservation, unchanged frames, keeping a hidden window hidden,
+  and restoring original hide flags. All three focused layout/window tests,
+  provisioned Debug build, strict formatting, shell syntax, and whitespace
+  checks pass. The read-only window diagnostic now offers `--watch` to sample
+  on-screen window IDs without activating the app.
+- Review-loop found and corrected a Swift formatting issue and broadened the
+  pre-build process check to cover any development arguments. The next review
+  pass was clean. The physical flash/menu-bar test is still pending; automated
+  checks and native control toggles do not establish that it is resolved.
+- No commit, push, publication, or replacement of the installed release.
+
+### Persistent protection during menu-bar-only mode
+
+- Dave's next physical test also invalidated the temporary protection: after
+  two successful switches, windows flashed again despite waiting several seconds.
+  A temporary diagnostic in the actual app observed delayed deactivation after
+  the previous cleanup had restored window hide properties.
+- Replaced that cleanup with protection lasting for the entire accessory mode.
+  Existing and newly opened titled windows retain `canHide = false` and
+  `hidesOnDeactivate = false` until Dock visibility returns. Explicit AppKit
+  Hide/Unhide restores and reapplies the original properties appropriately.
+  There are no delayed window-reopening or reordering callbacks.
+- Ten actual-app policy transitions, three seconds apart, kept both library and
+  Settings windows in the on-screen window list throughout the diagnostic run.
+  Removed the temporary tracing source and launch argument before the final
+  build. This observation does not replace Dave's physical no-flash check.
+- Four focused tests pass, including repeated transitions, new accessory-mode
+  windows, explicit Hide/Unhide, and existing pinned-layout regressions. The
+  provisioned Debug build and strict formatting pass. Final review-loop checked
+  observer lifetime, weak window references, policy failures, singleton scene
+  reuse, process guards, shell syntax, and whitespace without further findings.
+- Final preview process 84655 is the only running Textend, in accessory mode
+  with its library visible. Saved snippets, launch-at-login, and the installed
+  release were left unchanged. Physical verification remains pending.
+
+### Physical Dock-toggle failures and diagnosis
+
+- Dave's physical checks failed the persistent-protection version. They also
+  failed subsequent experiments using modern `activate()` and activation of all
+  windows. Those experiments are not accepted fixes and were removed.
+- Temporary lifecycle and window-order tracing during physical toggles showed
+  that the library remained open and `isVisible` stayed true, but its window
+  moved behind other applications. Later transitions also deactivated Textend,
+  moving Settings behind the foreground app. There were no library-close or
+  application-hide notifications during these toggles. Tests of visibility alone
+  did not cover the actual failure. Native inspection also changes focus and
+  cannot establish that these transitions work physically.
+- Removed the temporary trace and restored the prior helper pending a product
+  decision. The live Dock-toggle bug remains unresolved. The reusable read-only
+  diagnostic now reports active state and the foreground app as well as window
+  IDs, so a still-open window cannot be mistaken for an accepted transition.
+- Checked the installed Herd app's setting text: “Always Show Dock Icon” and
+  “When off, Herd only shows the Dock icon while a window is open.” Adopting that
+  behavior would avoid changing process policy while Textend windows are visible;
+  it is a proposed behavior change, not implemented or accepted yet.
+
+### Approved window-dependent Dock behavior
+
+- Dave approved matching Herd's behavior. The setting is now “Always show
+  Textend in the Dock.” When off, Textend keeps the Dock icon while any titled
+  window is open, hides it after the last closes, and restores it when a window
+  opens. Minimized windows and application Hide retain Dock access. This
+  supersedes the immediate-switch implementations and pending proposal above.
+- Replaced the previous protection and activation workarounds with a small
+  AppKit window-lifecycle controller. It coalesces notifications and waits until
+  a close finishes before evaluating remaining windows. It does not change
+  window hide flags, reorder windows, or switch to accessory mode with an open
+  editor. Settings and offline Help describe the approved behavior.
+- Native inspection of the rebuilt preview confirmed that toggling the setting
+  with library and Settings open leaves the app regular and both windows open.
+  Closing only the library retains the Dock icon. Closing Settings last leaves
+  the same process running in accessory mode with no onscreen windows. Reopening
+  restores the library and regular policy in the same process, PID 91023.
+  The preference was left off. Direct menu bar status-item clicks are still
+  unavailable through the inspection tool and are not claimed as verified.
+- Eight focused layout/window tests pass. Coverage includes no policy writes
+  while windows are open, last-close and reopen transitions, always-visible
+  mode, hidden and minimized windows, transient-window exclusion, and rejected
+  policy changes. The provisioned Debug build passes without warnings.
+- Review-loop iteration 1 identified actor-isolation warnings in injected
+  provider defaults; annotated the closure contracts with `@MainActor` and
+  reran the focused tests and build. Iteration 2 completed a clean pass over the
+  cumulative diff, lifecycle behavior, observer lifetime, preference persistence,
+  singleton scene, process guards, strict formatting, shell syntax, and whitespace.
+- Only one Textend preview process is running. No temporary tracing remains in
+  the app. Saved snippets, launch-at-login, and the installed release are unchanged.
+  No commit, push, release publication, or installed-app replacement performed.

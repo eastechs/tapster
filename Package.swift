@@ -22,7 +22,7 @@ let package = Package(
       exclude: [
         "LibrarySplitView.swift", "WindowLifecycleView.swift", "ThemedSelectionBridge.swift",
       ],
-      sources: ["PinnedContentController.swift"]),
+      sources: ["PinnedContentController.swift", "DockVisibility.swift"]),
     .testTarget(
       name: "TapsterLayoutTests", dependencies: ["TapsterLayout"], path: "Tests/TapsterLayoutTests"),
   ]

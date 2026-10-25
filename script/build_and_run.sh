@@ -10,7 +10,7 @@ case "$MODE" in
   *) echo "usage: $0 [--debug|--logs|--telemetry|--verify|--build-only|--preview|--initialize-cloudkit-schema]" >&2; exit 2 ;;
 esac
 
-if [[ "$MODE" == "--preview" || "$MODE" == "--initialize-cloudkit-schema" ]] && pgrep -f -x "$APP_BUNDLE/Contents/MacOS/$APP_NAME( --sync-preview)?" >/dev/null; then
+if [[ "$MODE" == "--preview" || "$MODE" == "--initialize-cloudkit-schema" ]] && pgrep -f -x "$APP_BUNDLE/Contents/MacOS/$APP_NAME( .*)?" >/dev/null; then
   echo "The development preview is already running. Quit it before rebuilding; the installed release can remain open." >&2
   exit 1
 fi
@@ -26,6 +26,13 @@ xcodebuild -quiet -project "$ROOT_DIR/Tapster.xcodeproj" -scheme Tapster \
   -configuration Debug -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$ROOT_DIR/build" \
   CODE_SIGN_IDENTITY="$LOCAL_SIGNING_IDENTITY" DEVELOPMENT_TEAM="$SIGNING_TEAM" \
   PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" build
+
+# Login-item or external launches can occur during the build. Do not let -n
+# create a second process sharing the development store and menu bar icon.
+if [[ "$MODE" == "--preview" || "$MODE" == "--initialize-cloudkit-schema" ]] && pgrep -f -x "$APP_BUNDLE/Contents/MacOS/$APP_NAME( .*)?" >/dev/null; then
+  echo "Textend started during the build. Reuse that process, or quit it before launching an isolated preview." >&2
+  exit 1
+fi
 
 case "$MODE" in
   --build-only) echo "$APP_BUNDLE" ;;

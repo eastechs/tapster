@@ -35,13 +35,13 @@ struct SnippetHeaderView: View {
   var body: some View {
     HStack(spacing: 8) {
       if let draft = state.draft {
-        Text(draft.name.isEmpty ? "New Snippet" : draft.name)
-          .font(.headline).lineLimit(1).truncationMode(.tail).help(draft.name)
         Toggle(isOn: state.editorBinding(for: draft).isFavorite) {
           Image(systemName: draft.isFavorite ? "star.fill" : "star")
         }
         .toggleStyle(.button).buttonStyle(.borderless).fixedSize()
         .help("Favorite snippet").accessibilityLabel("Favorite snippet")
+        Text(draft.name.isEmpty ? "New Snippet" : draft.name)
+          .font(.headline).lineLimit(1).truncationMode(.tail).help(draft.name)
       }
       Spacer(minLength: 0)
     }

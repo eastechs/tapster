@@ -8,7 +8,7 @@ struct WindowLifecycleView: NSViewRepresentable {
     let view = NSView()
     DispatchQueue.main.async { [weak view] in
       view?.window?.delegate = context.coordinator
-      view?.window?.identifier = NSUserInterfaceItemIdentifier("tapster-library")
+      view?.window?.tabbingMode = .disallowed
       view?.window?.setFrameAutosaveName("TapsterLibrary")
     }
     return view

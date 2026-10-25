@@ -5,6 +5,7 @@ import SwiftUI
   weak var state: AppState?
 
   func applicationWillFinishLaunching(_ notification: Notification) {
+    NSWindow.allowsAutomaticWindowTabbing = false
     let appearance =
       AppAppearance(
         rawValue: UserDefaults.standard.string(forKey: "textendAppearance") ?? "system") ?? .system
@@ -12,7 +13,8 @@ import SwiftUI
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApp.setActivationPolicy(.regular)
+    let showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+    DockVisibility.shared.start(alwaysVisible: showDockIcon)
     NSApp.activate(ignoringOtherApps: true)
   }
 
@@ -23,7 +25,10 @@ import SwiftUI
     return state?.confirmUnsavedChanges() == false ? .terminateCancel : .terminateNow
   }
 
-  func applicationWillTerminate(_ notification: Notification) { state?.engine.stop() }
+  func applicationWillTerminate(_ notification: Notification) {
+    DockVisibility.shared.stop()
+    state?.engine.stop()
+  }
 }
 
 @MainActor @Observable final class AppBootstrap {
@@ -98,7 +103,7 @@ import SwiftUI
   @State private var bootstrap = AppBootstrap()
 
   var body: some Scene {
-    WindowGroup("Textend", id: "library") {
+    Window("Textend", id: "library") {
       if let state = bootstrap.state {
         ContentView(state: state).textendTheme().onAppear { delegate.state = state }
       } else {
@@ -133,6 +138,8 @@ import SwiftUI
         MenuBarContent(state: state, updater: bootstrap.updater).textendTheme()
       } else {
         Text("Library unavailable")
+        Divider()
+        Button("Quit Textend") { NSApp.terminate(nil) }.keyboardShortcut("q")
       }
     }
   }
@@ -146,11 +153,7 @@ private struct MenuBarContent: View {
     Text(state.engine.status.rawValue)
     Divider()
     Button("Open Textend") {
-      if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "tapster-library" }) {
-        window.makeKeyAndOrderFront(nil)
-      } else {
-        openWindow(id: "library")
-      }
+      openWindow(id: "library")
       NSApp.activate(ignoringOtherApps: true)
     }
     Button(state.engine.isEnabled ? "Pause Expansion" : "Resume Expansion") {

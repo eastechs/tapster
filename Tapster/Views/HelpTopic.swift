@@ -76,7 +76,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Keep Textend available",
           body:
-            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library or pause expansion. Quit Textend to stop it completely. Launch at login is optional in Settings → General."
+            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library, access Settings, pause expansion, or quit. In Settings → General → App Behavior, turn off Always show Textend in the Dock to hide the Dock icon after the last window closes. The icon returns when you open a window. Minimized windows keep the icon available, and the preference is remembered on this Mac. Launch at login is optional in the same section."
         ),
       ]),
     HelpTopic(
