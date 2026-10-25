@@ -733,7 +733,7 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   `82629955d1445b5b7385b127638c3832c26148bd85e57dcee76ee745c69ccb63`.
 - No release files were uploaded to Spaces, no live feed was changed, and the
   installed app was not replaced. The live feed read during preparation was
-  0.2.0 (5). An actual update to 0.2.1 remains to be tested after publication.
+  0.2.0 (5). Actual update acceptance is recorded below.
 
 ### 0.2.1 publication
 
@@ -746,5 +746,12 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
 - Publication completed successfully. The public feed's bytes match the signed
   local feed and advertise 0.2.1 (6) at
   `https://cdn.usetextend.com/macos/Textend-0.2.1-6.zip`.
-  The installed app was not replaced; an actual in-app update to this version
-  remains a separate user check.
+  Publication did not replace the installed app; actual update acceptance is
+  recorded below.
+
+### 0.2.1 update acceptance
+
+- On 2026-10-25, Dave reported that the update to Textend 0.2.1 (6) worked.
+  This records user-confirmed acceptance of the actual in-app update following
+  the verified Spaces/CDN publication. No additional checks of permissions,
+  library contents, or sync behavior were reported for this update.
