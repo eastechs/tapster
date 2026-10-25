@@ -170,7 +170,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Accent color",
           body:
-            "Choose Blue, Purple, Pink, Red, Orange, Yellow, Green, or Graphite. Controls, sidebar icons, list selections, input borders, and placeholder highlights update immediately. Window controls and system menus continue to use your macOS accent color."
+            "Choose Blue, Purple, Pink, Red, Orange, Yellow, Green, or Graphite. Controls, sidebar icons, list selections, input borders, placeholder highlights, and the running app’s Dock icon update immediately. Finder and Spotlight keep the installed blue icon; the menu-bar mark stays monochrome. Window controls and system menus continue to use your macOS accent color."
         ),
       ]),
     HelpTopic(

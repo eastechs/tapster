@@ -15,6 +15,9 @@ import SwiftUI
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    let accent =
+      AppAccent(rawValue: UserDefaults.standard.string(forKey: "textendAccent") ?? "blue") ?? .blue
+    ThemedAppIcon.apply(accent)
     NSApp.activate(ignoringOtherApps: true)
   }
 

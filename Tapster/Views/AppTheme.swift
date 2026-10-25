@@ -41,6 +41,29 @@ enum AppAccent: String, CaseIterable, Identifiable {
   var color: Color { Color(nsColor: nsColor) }
 }
 
+@MainActor enum ThemedAppIcon {
+  private static var appliedAccent: AppAccent?
+
+  static func apply(_ accent: AppAccent) {
+    guard appliedAccent != accent else { return }
+    if accent == .blue {
+      // Restore the installed layered icon, including its native renditions.
+      NSApp.applicationIconImage = nil
+    } else {
+      guard let artwork = NSImage(named: "ThemeIcon-\(accent.rawValue)") else { return }
+      // Icon Composer exports are full bleed. Match the installed macOS icon's
+      // 80% artwork footprint so changing colors never enlarges the Dock icon.
+      let size = NSSize(width: 1024, height: 1024)
+      let icon = NSImage(size: size, flipped: false) { bounds in
+        artwork.draw(in: bounds.insetBy(dx: bounds.width * 0.1, dy: bounds.height * 0.1))
+        return true
+      }
+      NSApp.applicationIconImage = icon
+    }
+    appliedAccent = accent
+  }
+}
+
 private struct AppAccentKey: EnvironmentKey {
   static let defaultValue = AppAccent.blue
 }
@@ -61,6 +84,7 @@ private struct AppTheme: ViewModifier {
       .environment(\.textendAccent, accent)
       .tint(accent.color)
       .accentColor(accent.color)
+      .onChange(of: accent) { _, value in ThemedAppIcon.apply(value) }
       .onChange(of: appearance, initial: true) { _, value in value.apply() }
   }
 }
@@ -151,7 +175,7 @@ struct AppearanceSettingsView: View {
         Text("Appearance")
       } footer: {
         Text(
-          "System follows your Mac’s Light or Dark appearance. Window controls and system menus use your macOS accent color."
+          "System follows your Mac’s Light or Dark appearance. Accent color also changes the running app’s Dock icon. Finder keeps the installed blue icon. Window controls and system menus use your macOS accent color."
         )
         .font(.caption).foregroundStyle(.secondary)
       }

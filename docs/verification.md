@@ -667,3 +667,28 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   This is user-reported acceptance; no additional specific test matrix or agent
   measurement is implied. The earlier automated/build/review results remain as
   recorded above.
+
+### Theme-colored Dock icons
+
+- Exported eight background-color variants from the existing X2 Icon Composer
+  document with Apple's renderer. The original layers, source document, and
+  installed blue app icon remain unchanged. A repeatable exporter regenerates
+  the asset catalog variants.
+- The saved accent applies at launch; changes update the running Dock icon on
+  the main actor. Repeated hosting-root notifications do not reassign the same
+  icon. Blue restores the installed layered icon. Runtime images include 10%
+  transparent margins on every side to match the compiled macOS icon footprint.
+- Provisioned Debug build, strict Swift formatting, exporter syntax, asset
+  manifests, and whitespace checks pass. A temporary native AppKit harness using
+  the production icon-update code loaded all eight assets from the compiled app,
+  verified 1024-point dimensions and transparent margins, exercised every color,
+  checked duplicate-update suppression, and restored Blue. Its initial actor
+  isolation compile error was corrected in the harness before the passing run.
+- Review-loop completed with a clean pass covering lifecycle, asset lookup,
+  source preservation, documentation, and unchanged Dock activation policy.
+  No expansion or persistence changes were made. Dave retains native visual
+  acceptance; these checks do not establish actual Dock appearance.
+- Finder and Spotlight retain the installed blue icon. The menu-bar template
+  remains monochrome, and menu-bar-only mode continues hiding the Dock icon.
+- Dave inspected the preview, reported that it looks good, and authorized the
+  commit. This records user visual acceptance of the theme-colored icons.

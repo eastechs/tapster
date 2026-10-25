@@ -32,6 +32,8 @@ Use File → Export Backup to save a versioned JSON backup. Import adds a valida
 
 Settings → Appearance offers System, Light, and Dark modes, plus an accent color selector. Blue, Purple, Pink, Red, Orange, Yellow, Green, and Graphite use Apple's adaptive system colors. Choices update immediately and persist across launches, including selections in the library and Help. Window controls and system menus continue to use the macOS accent color.
 
+The running app’s Dock icon follows the selected accent using matching versions of the original artwork. Finder and Spotlight retain the installed blue icon, and the menu-bar mark remains monochrome. Menu-bar-only mode keeps the Dock icon hidden.
+
 Help → Textend Help opens a searchable offline guide covering setup, keywords and timing, placeholders, collections, appearance, backups and updates, troubleshooting, and keyboard shortcuts. Press ⌘F in the Help window to search.
 
 ## Tests
@@ -49,6 +51,8 @@ The selected [design](docs/design/tapster-native-macos.png) and [implementation 
 ## App icon and identity
 
 Run `./script/export_icon.sh` to regenerate the 1024-pixel PNG using Icon Composer’s renderer.
+
+Run `python3 script/export_theme_icons.py` to regenerate all eight theme images in the asset catalog. It uses the same Icon Composer source and changes only the background gradient. Runtime Dock rendering adds the standard macOS icon margins; selecting Blue restores the installed layered icon.
 
 The X2 Continuous icon is an editable Icon Composer document at `Tapster/Resources/Textend.icon`. Its two SVG ribbon layers are also in `docs/design/textend/`. Xcode compiles the layered icon and the macOS compatibility icon into Textend.app.
 
