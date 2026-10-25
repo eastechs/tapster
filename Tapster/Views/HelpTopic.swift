@@ -106,7 +106,7 @@ struct HelpTopic: Identifiable {
       ]),
     HelpTopic(
       id: "placeholders", title: "Placeholders", symbol: "curlybraces",
-      summary: "Add clipboard text and dates to a plain-text template.",
+      summary: "Add clipboard text, dates, and a caret position to a template.",
       sections: [
         Section(
           title: "Insert a value",
@@ -119,6 +119,13 @@ struct HelpTopic: Identifiable {
             "Copy the value you want before expanding. If the clipboard has no text, Textend leaves the keyword unchanged. Clipboard text is inserted literally, including any braces it contains.",
           example:
             "Template: git commit {commit_message}\nSource: commit_message → Clipboard\nClipboard: Fix login redirect\nResult: git commit Fix login redirect"
+        ),
+        Section(
+          title: "Place the caret",
+          body:
+            "Choose Insert Placeholder → Cursor Position, or type {cursor} where you want to continue typing. Use one marker per template; it needs no source mapping and is removed from the inserted text. Without a marker, the caret stays at the end, including after trailing spaces. Write {{cursor}} to insert the literal text {cursor}. Copy Expanded Text removes the marker but cannot reposition the caret when you paste manually. If you type or move focus before placement finishes, Textend cancels the pending move. Editors that alter pasted text, such as adding indentation, may require you to position the caret manually.",
+          example:
+            "Template: git commit -m \"{cursor}\"\nAfter expansion: git commit -m \"│\"\n│ shows the caret; it is not inserted."
         ),
         Section(
           title: "Format a date",

@@ -11,10 +11,20 @@ struct ExpansionTarget: Equatable {
 
 @MainActor protocol ExpansionFocus {
   func currentTarget() -> ExpansionTarget?
+  func selectionRange() -> CFRange?
+  func text(in range: CFRange) -> String?
+  func moveCaret(to location: Int) -> Bool
+}
+
+extension ExpansionFocus {
+  func selectionRange() -> CFRange? { nil }
+  func text(in range: CFRange) -> String? { nil }
+  func moveCaret(to location: Int) -> Bool { false }
 }
 
 @MainActor protocol ExpansionInsertion {
-  func replace(keyword: String, with text: String, target: ExpansionTarget) throws
+  func replace(keyword: String, with text: String, target: ExpansionTarget, cursorUTF16Offset: Int?)
+    throws
 }
 
 /// Values are resolved before any destructive operation; focus is checked again after resolution.
@@ -31,11 +41,13 @@ struct ExpansionTarget: Equatable {
     let needsClipboard = snippet.placeholders.contains {
       $0.source == .clipboard && names.contains($0.name)
     }
-    let text = try TemplateResolver.resolve(
+    let expansion = try TemplateResolver.resolveExpansion(
       snippet, clipboard: needsClipboard ? clipboard.readText() : nil, date: date)
     guard focus.currentTarget() == target else {
       throw TemplateError.invalid("Expansion cancelled because focus changed.")
     }
-    try insertion.replace(keyword: snippet.keyword, with: text, target: target)
+    try insertion.replace(
+      keyword: snippet.keyword, with: expansion.text, target: target,
+      cursorUTF16Offset: expansion.cursorUTF16Offset)
   }
 }

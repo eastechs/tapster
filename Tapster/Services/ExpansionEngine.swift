@@ -23,7 +23,8 @@ import Observation
   }
   private var matcher = TriggerMatcher()
   private let focus = FocusService()
-  @ObservationIgnored private lazy var insertion = TextInsertionService(focus: focus)
+  @ObservationIgnored private lazy var insertion = TextInsertionService(
+    focus: focus, cursorFailure: { [weak self] message in self?.lastMessage = message })
   private var eventTap: CFMachPort?
   private var runLoopSource: CFRunLoopSource?
   private var timer: Timer?
@@ -178,6 +179,7 @@ import Observation
     if event.getIntegerValueField(.eventSourceUserData) == TextInsertionService.eventMarker {
       return
     }
+    if type != .flagsChanged { insertion.cancelCursorPlacement() }
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
       cancel()
       if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
@@ -272,6 +274,7 @@ import Observation
   }
 
   private func cancel() {
+    insertion.cancelCursorPlacement()
     timer?.invalidate()
     timer = nil
     matcher.reset()

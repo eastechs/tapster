@@ -522,3 +522,41 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   No installed-app replacement, commit, push, or release publication performed.
 - Dave subsequently inspected the menu bar logo, approved its appearance, and
   requested this commit. Menu command behavior was not retested by the agent.
+
+## Cursor placeholder (2026-10-24)
+
+- Added one built-in `{cursor}` marker per template, Insert Placeholder → Cursor
+  Position, a theme-colored preview indicator, accessible position text, and Help.
+  The marker requires no mapping and is omitted from inserted/copied text.
+  `{{cursor}}` remains literal, clipboard contents are never reparsed, and trailing
+  spaces remain intact. Existing value mappings named cursor are blocked with a
+  correction action instead of silently acquiring a different meaning.
+- Uses native Accessibility selection positioning after confirming the expected
+  caret and the exact inserted span. This also prevents premature movement when
+  the replacement and keyword have equal lengths. Editors that reject selection
+  writes can use tagged Left events for up to 256 trailing characters. Larger
+  moves require Accessibility support. Unconfirmed or unsupported moves leave
+  inserted text in place and report that manual caret positioning is needed.
+- Physical typing, navigation, focus changes, pause, permission/secure-input
+  changes, and index updates cancel pending movement. Synthetic events are ignored.
+  Clipboard restoration retains its change-count guard. A deterministic scheduler
+  tests delayed consumption, stale callbacks, and cancellation without system input.
+- Reviewed existing [Espanso cursor hints](https://espanso.org/docs/matches/basics/#cursor-hints)
+  and Apple's Accessibility selection API. Reused Textend's parser, insertion,
+  focus, and native editor paths without adding a dependency or changing storage.
+- Native inspection confirmed insertion between quotes, the preview marker,
+  duplicate-marker validation blocking Save, and native Undo restoring the valid
+  template. Saved a disposable development snippet, “Cursor Placement Check,”
+  keyword `zzcaret`, template `git commit -m "{cursor}"`, for the physical check.
+- All 54 Swift tests pass (46 core, 8 layout), strict formatting and whitespace
+  checks pass, and the provisioned Debug build succeeds without warnings.
+  Review-loop iteration 1 added equal-length consumption verification and bounded
+  navigation fallback; iteration 2 completed a clean code and automated-check pass.
+- Dave removed and re-added the development app's Accessibility entry, after
+  which the preview reported Expansion active. Automated keystrokes did not
+  trigger the global monitor, so Dave performed the physical typing check in
+  TextEdit: typing `zzcaret`, pausing, then typing `test` produced
+  `git commit -m "test"`, with the new text inside the quotes. Dave confirmed this
+  result. This verifies the short, single-line caret path in TextEdit; live
+  multiline/paste insertion and caret compatibility in other apps remain unverified.
+- No commit, push, release publication, or installed-app replacement performed.

@@ -58,6 +58,7 @@ enum LibraryValidation {
       }
     }
     let parsed = try TemplateParser.parse(snippet.template)
+    try TemplateResolver.validateCursorMapping(snippet, parsed: parsed)
     guard !snippet.template.isEmpty else { throw TemplateError.invalid("Add some template text.") }
     guard Set(snippet.placeholders.map(\.name)).count == snippet.placeholders.count,
       Set(snippet.placeholders.map(\.id)).count == snippet.placeholders.count

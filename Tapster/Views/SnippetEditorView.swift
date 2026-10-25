@@ -8,6 +8,7 @@ struct SnippetEditorView: View {
   @State private var showingPlaceholder = false
 
   private var names: [String] { (try? TemplateParser.parse(draft.template).names) ?? [] }
+  private var hasCursor: Bool { (try? TemplateParser.parse(draft.template).hasCursor) == true }
 
   var body: some View {
     editor
@@ -95,6 +96,14 @@ struct SnippetEditorView: View {
           VStack(alignment: .leading, spacing: 8) {
             placeholderMenu
             braceHint
+            if hasCursor && draft.placeholders.contains(where: { $0.name == "cursor" }) {
+              Button("Remove existing cursor mapping") {
+                draft.placeholders.removeAll { $0.name == "cursor" }
+              }
+              .help(
+                "Use {cursor} for caret placement instead of its previous clipboard or date source."
+              )
+            }
           }
         }
 
@@ -130,6 +139,9 @@ struct SnippetEditorView: View {
         placeholderSource = .dateTime
         showingPlaceholder = true
       }
+      Divider()
+      Button("Cursor Position") { insertion = PlaceholderInsertion(text: "{cursor}") }
+        .disabled(hasCursor)
     } label: {
       Label("Insert Placeholder", systemImage: "plus")
     }
@@ -228,11 +240,15 @@ private struct PlaceholderSheet: View {
       TextField("Placeholder name", text: $name).onSubmit(add)
       Text("Use letters, numbers, and underscores. You can reuse an existing name.")
         .font(.caption).foregroundStyle(.secondary)
+      if name == "cursor" {
+        Text("cursor is reserved. Choose Cursor Position from Insert Placeholder instead.")
+          .font(.caption).foregroundStyle(.secondary)
+      }
       HStack {
         Spacer()
         Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
         Button("Insert", action: add).keyboardShortcut(.defaultAction).disabled(
-          !TemplateParser.isValidName(name))
+          !TemplateParser.isValidName(name) || name == "cursor")
       }
     }
     .textFieldStyle(SnippetInputStyle())
@@ -240,7 +256,7 @@ private struct PlaceholderSheet: View {
     .onAppear { name = source == .clipboard ? "clipboard" : "today" }
   }
   private func add() {
-    guard TemplateParser.isValidName(name) else { return }
+    guard TemplateParser.isValidName(name), name != "cursor" else { return }
     insert(name, source)
     dismiss()
   }

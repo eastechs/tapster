@@ -66,6 +66,28 @@ import Carbon
 
   static var secureInputEnabled: Bool { IsSecureEventInputEnabled() }
 
+  func moveCaret(to location: Int) -> Bool {
+    guard let element = focusedElement, location >= 0 else { return false }
+    var range = CFRange(location: location, length: 0)
+    guard let value = AXValueCreate(.cfRange, &range) else { return false }
+    return AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value)
+      == .success
+  }
+
+  /// Read only the span just inserted by Textend to confirm paste consumption.
+  func text(in range: CFRange) -> String? {
+    guard let element = focusedElement else { return nil }
+    var range = range
+    guard let parameter = AXValueCreate(.cfRange, &range) else { return nil }
+    var value: CFTypeRef?
+    guard
+      AXUIElementCopyParameterizedAttributeValue(
+        element,
+        kAXStringForRangeParameterizedAttribute as CFString, parameter, &value) == .success
+    else { return nil }
+    return value as? String
+  }
+
   static var supportsCurrentInputSource: Bool {
     guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
       let property = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsASCIICapable)
