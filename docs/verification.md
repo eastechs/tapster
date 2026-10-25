@@ -734,3 +734,17 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
 - No release files were uploaded to Spaces, no live feed was changed, and the
   installed app was not replaced. The live feed read during preparation was
   0.2.0 (5). An actual update to 0.2.1 remains to be tested after publication.
+
+### 0.2.1 publication
+
+- Dave authorized committing, pushing, and publishing the prepared release.
+  Preparation notes were pushed as `45be1b2`.
+- The local publish script verified the archive/feed hashes and Sparkle
+  signatures, confirmed build 6 supersedes the existing feed, and uploaded
+  `macos/Textend-0.2.1-6.zip` to Spaces. The downloaded CDN archive matched the
+  prepared SHA-256 before the script published `macos/appcast.xml`.
+- Publication completed successfully. The public feed's bytes match the signed
+  local feed and advertise 0.2.1 (6) at
+  `https://cdn.usetextend.com/macos/Textend-0.2.1-6.zip`.
+  The installed app was not replaced; an actual in-app update to this version
+  remains a separate user check.
