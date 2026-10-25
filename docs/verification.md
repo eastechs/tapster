@@ -713,3 +713,24 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   corrections, bundled license, and the license-consistency check. No application
   behavior changed during release preparation. Visual acceptance remains Dave's
   earlier reported testing of the included changes.
+
+### Public repository and prepared release
+
+- Committed and pushed the licensing and release preparation as `eb841dd`.
+  Made `eastechs/tapster` public and verified it through GitHub's unauthenticated
+  API: MIT recognized, pull requests disabled, Issues enabled.
+- Prepared `dist/0.2.1-6/` from source
+  `eb841dd9ec5c776cc2bc4a5e7f92f0ee9a01b01c`. The universal app includes arm64
+  and x86_64, preserves the bundle identity, production CloudKit entitlements,
+  and signed-update requirements, and includes the MIT and Sparkle notices.
+- Apple accepted notarization submission
+  `930481fc-d4db-4138-ac98-db25cd0e28fd`. Stapling, Gatekeeper assessment, and
+  nested signature validation passed. Dave approved Sparkle's Keychain prompt;
+  feed generation and cryptographic verification then completed successfully.
+- Independently verified archive/feed SHA-256 hashes against the manifest, feed
+  version 0.2.1/build 6, archive size, download URL, and Sparkle feed signature.
+  Archive SHA-256:
+  `82629955d1445b5b7385b127638c3832c26148bd85e57dcee76ee745c69ccb63`.
+- No release files were uploaded to Spaces, no live feed was changed, and the
+  installed app was not replaced. The live feed read during preparation was
+  0.2.0 (5). An actual update to 0.2.1 remains to be tested after publication.
