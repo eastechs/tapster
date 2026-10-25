@@ -755,3 +755,27 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   This records user-confirmed acceptance of the actual in-app update following
   the verified Spaces/CDN publication. No additional checks of permissions,
   library contents, or sync behavior were reported for this update.
+
+### Textend repository and project naming
+
+- Renamed the GitHub repository to `eastechs/textend` and updated origin. GitHub
+  confirms public visibility, MIT, disabled pull requests, and enabled Issues.
+- Renamed the Xcode project, target, scheme, Swift module, source directory, app
+  entry point, schema types, Swift package targets, test directories/imports,
+  reference-image filename, and Codex Run environment to Textend. Updated build,
+  release, check, and icon-export scripts plus current documentation and links.
+- Retained the released bundle ID, CloudKit container, Application Support and
+  preferences identities, and window autosave keys for compatibility. Historical
+  verification entries keep names used at the time. No artwork was regenerated.
+- Before renaming, compiled the original model code under the released module
+  name and wrote synthetic V1/V2 stores outside the repository. A separate probe
+  compiled under Textend opened both and verified their records, collections,
+  placeholder mappings, favorites, timestamps, and unchanged entity version
+  hashes. Added a regression test against those released entity hashes.
+- Full checks pass: 55 Swift tests, 16 release tests, 5 provisioning tests, strict
+  formatting, shell syntax, license consistency, and the provisioned Debug build.
+  Review-loop caught and corrected one formatting issue and a duplicated phrase
+  in README; the second pass was clean. Mapped-file comparison confirms the
+  source edits are renames and compatibility comments, with artwork unchanged.
+- The installed 0.2.1 app and its data were not modified. No new release was
+  published and no new two-Mac sync test was performed for this source rename.

@@ -4,7 +4,7 @@ Textend is open source, but external code contributions are currently closed.
 Pull requests are disabled. Please do not submit patches through issues or email.
 
 Bug reports and feature requests are welcome through
-[GitHub Issues](https://github.com/eastechs/tapster/issues). Include your Textend
+[GitHub Issues](https://github.com/eastechs/textend/issues). Include your Textend
 version, macOS version, steps to reproduce, and expected behavior. Remove private
 snippet content and clipboard data before sharing screenshots or diagnostics.
 

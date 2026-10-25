@@ -152,7 +152,7 @@ def build_release(args, config):
     archive = work / "Textend.xcarchive"
     exported = work / "export"
     print("Archiving Textend…", flush=True)
-    run("xcodebuild", "-quiet", "-project", ROOT / "Tapster.xcodeproj", "-scheme", "Tapster",
+    run("xcodebuild", "-quiet", "-project", ROOT / "Textend.xcodeproj", "-scheme", "Textend",
         "-configuration", "Release", "-destination", "generic/platform=macOS",
         "-derivedDataPath", work / "DerivedData", "-clonedSourcePackagesDirPath", ROOT / "build/SourcePackages",
         "-disableAutomaticPackageResolution", "-archivePath", archive,

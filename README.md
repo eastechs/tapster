@@ -4,14 +4,14 @@ A native macOS snippet manager and text expander built with SwiftUI, AppKit, and
 
 Source code is available under the [MIT license](LICENSE). The Textend name and
 artwork are reserved; see [TRADEMARK.md](TRADEMARK.md). Sparkle's license and
-third-party notices are included in [Sparkle-LICENSE.txt](Tapster/Resources/Sparkle-LICENSE.txt).
+third-party notices are included in [Sparkle-LICENSE.txt](Textend/Resources/Sparkle-LICENSE.txt).
 External code contributions are currently closed and pull requests are disabled.
-[Bug reports and feature requests](https://github.com/eastechs/tapster/issues) are
+[Bug reports and feature requests](https://github.com/eastechs/textend/issues) are
 welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Run
 
-Open `Tapster.xcodeproj`, select the Tapster scheme, and run, or use:
+Open `Textend.xcodeproj`, select the Textend scheme, and run, or use:
 
 ```sh
 ./script/build_and_run.sh
@@ -29,7 +29,7 @@ produce a notarized release.
 For an independent build, configure your own Apple Developer team, bundle ID,
 CloudKit container, and provisioning profiles in Xcode. Update the corresponding
 identifiers in `Config/CloudKit.entitlements`,
-`Tapster/Services/SyncConfiguration.swift`, and `script/provisioning.py` if using
+`Textend/Services/SyncConfiguration.swift`, and `script/provisioning.py` if using
 the scripts. Distributed forks also need their own branding, release configuration
 in `script/release.py`, and Sparkle update feed/key in `Config/Updates.xcconfig`;
 do not ship a fork pointing to Textend's
@@ -43,7 +43,7 @@ Save before trying a keyword. Templates insert literal text; Textend never execu
 
 Enable expansion in Settings and allow Accessibility when macOS asks. Accessibility covers both keyboard monitoring and insertion for Textend's active event tap; a separate Input Monitoring grant is not needed. The menu bar can pause or resume expansion, and closing the library window keeps Textend running. Launch at login is optional.
 
-If an older development build was authorized before changing its signing identity, macOS may still show Tapster or Textend enabled while rejecting the current app. Remove the old entry from Accessibility, add the current `build/Build/Products/Debug/Textend.app`, and enable it again. The build script uses the provisioned Apple Development identity to preserve identity across rebuilds.
+If an older development build was authorized before changing its signing identity, macOS may still show the app enabled while rejecting the current app. Remove the old entry from Accessibility, add the current `build/Build/Products/Debug/Textend.app`, and enable it again. The build script uses the provisioned Apple Development identity to preserve identity across rebuilds.
 
 For overlapping keywords such as `gc` and `gco`, Textend waits 250 ms after an ambiguous exact match. Tune this under Settings → General → Expansion, from 100 to 1,000 ms. Unambiguous matches expand immediately. Continuing into an incomplete or unrelated keyword cancels the pending shorter match and retains typed text.
 
@@ -67,7 +67,7 @@ Run `./script/check.sh` for formatting checks, tests, and an Xcode build in one 
 
 Tests cover matching and debounce, template resolution, persistence/imports, unsaved drafts, focus cancellation, and clipboard preservation. Insertion tests capture generated events without posting them to the computer. Cross-app acceptance still requires real typing in target applications.
 
-The selected [design](docs/design/tapster-native-macos.png) and [implementation plan](docs/implementation-plan.md) are included in `docs/`.
+The selected [design](docs/design/textend-native-macos.png) and [implementation plan](docs/implementation-plan.md) are included in `docs/`.
 
 ## App icon and identity
 
@@ -75,9 +75,13 @@ Run `./script/export_icon.sh` to regenerate the 1024-pixel PNG using Icon Compos
 
 Run `python3 script/export_theme_icons.py` to regenerate all eight theme images in the asset catalog. It uses the same Icon Composer source and changes only the background gradient. Runtime Dock rendering adds the standard macOS icon margins; selecting Blue restores the installed layered icon.
 
-The X2 Continuous icon is an editable Icon Composer document at `Tapster/Resources/Textend.icon`. Its two SVG ribbon layers are also in `docs/design/textend/`. Xcode compiles the layered icon and the macOS compatibility icon into Textend.app.
+The X2 Continuous icon is an editable Icon Composer document at `Textend/Resources/Textend.icon`. Its two SVG ribbon layers are also in `docs/design/textend/`. Xcode compiles the layered icon and the macOS compatibility icon into Textend.app.
 
-The app retains `chat.eastechs.tapster`, the Tapster Swift module, and its existing store/preferences keys so the rename preserves the library and app identity. Project and scheme names remain Tapster; the built product and visible app name are Textend.
+The project, scheme, Swift module, and source directory are named Textend. The
+released bundle ID `chat.eastechs.tapster`, iCloud container
+`iCloud.chat.eastechs.tapster`, and existing storage/window-preference keys remain
+stable for update, permission, and saved-library compatibility. These identifiers
+are not displayed as the app's name.
 
 ## Automatic updates and releases
 

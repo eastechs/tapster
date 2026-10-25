@@ -22,7 +22,7 @@ if [[ "$MODE" != "--build-only" && "$MODE" != "--preview" && "$MODE" != "--initi
     exit 1
   fi
 fi
-xcodebuild -quiet -project "$ROOT_DIR/Tapster.xcodeproj" -scheme Tapster \
+xcodebuild -quiet -project "$ROOT_DIR/Textend.xcodeproj" -scheme Textend \
   -configuration Debug -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$ROOT_DIR/build" \
   CODE_SIGN_IDENTITY="$LOCAL_SIGNING_IDENTITY" DEVELOPMENT_TEAM="$SIGNING_TEAM" \
   PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" build

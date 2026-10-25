@@ -26,8 +26,8 @@ def main():
     tool = developer.parent / "Applications/Icon Composer.app/Contents/Executables/ictool"
     if not tool.is_file():
         raise SystemExit("Icon Composer's export tool is missing from the selected Xcode.")
-    source = ROOT / "Tapster/Resources/Textend.icon"
-    catalog = ROOT / "Tapster/Resources/Assets.xcassets"
+    source = ROOT / "Textend/Resources/Textend.icon"
+    catalog = ROOT / "Textend/Resources/Assets.xcassets"
     with tempfile.TemporaryDirectory(prefix="textend-theme-icons-") as temporary:
         document = Path(temporary) / "Theme.icon"
         shutil.copytree(source, document)

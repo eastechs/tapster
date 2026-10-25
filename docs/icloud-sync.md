@@ -4,6 +4,12 @@ Sync is opt-in. SwiftData mirrors saved snippets and collections into the user's
 private `iCloud.chat.eastechs.tapster` database. Preferences, permissions and launch
 settings remain local. The app remains unsandboxed for text expansion.
 
+The container identifier and team ID are public configuration, not credentials.
+CloudKit access requires the app's signed entitlements; private database contents
+belong to the current iCloud user. See [Apple's container documentation](https://developer.apple.com/documentation/cloudkit/ckcontainer).
+Signing keys, provisioning profiles, and service credentials stay outside Git.
+Independent forks need their own team and CloudKit container.
+
 ## Signing and environments
 
 Keep bundle `chat.eastechs.tapster` and team `VK288Z42NG`. The App ID must have

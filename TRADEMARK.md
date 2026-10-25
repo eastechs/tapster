@@ -6,9 +6,9 @@ Third-party components retain their own licenses.
 The Textend name, logo, application icon, and brand artwork remain the property
 of Eastechs, LLC and are excluded from the MIT license. This includes:
 
-- `Tapster/Resources/Textend.icon/`
-- `Tapster/Resources/Assets.xcassets/MenuBarIcon.imageset/`
-- `Tapster/Resources/Assets.xcassets/ThemeIcon-*.imageset/`
+- `Textend/Resources/Textend.icon/`
+- `Textend/Resources/Assets.xcassets/MenuBarIcon.imageset/`
+- `Textend/Resources/Assets.xcassets/ThemeIcon-*.imageset/`
 - `docs/design/textend/`
 - Textend branding appearing in screenshots and mockups
 

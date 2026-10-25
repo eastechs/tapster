@@ -1,14 +1,14 @@
-# Tapster native macOS plan
+# Textend native macOS plan
 
 Status: implemented as a native Xcode app, with automated tests and local UI verification in progress. Physical cross-app acceptance is being tested by Dave in TextEdit. Signed release packaging and notarization remain a separate release step.
 
-Selected design: [Option 1](design/tapster-native-macos.png). This image defines the three-column composition and hierarchy. Actual controls, spacing, typography, selection, materials, and window behavior will follow macOS conventions.
+Selected design: [Option 1](design/textend-native-macos.png). This image defines the three-column composition and hierarchy. Actual controls, spacing, typography, selection, materials, and window behavior will follow macOS conventions.
 
 ## Product
 
-Tapster manages text snippets and expands their keywords in the focused application while Tapster is running. A snippet has a name, optional keyword, template, and named dynamic placeholders. The first release covers plain text, clipboard values, and date/time values.
+Textend manages text snippets and expands their keywords in the focused application while Textend is running. A snippet has a name, optional keyword, template, and named dynamic placeholders. The first release covers plain text, clipboard values, and date/time values.
 
-Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`, with `commit_message` mapped to Clipboard. If the clipboard contains `Fix login redirect`, expansion inserts `git commit Fix login redirect`. Templates are literal: Tapster does not add quotes, flags, escaping, or execute commands. A runnable Git example can instead use `git commit -m "{commit_message}"`, with the user responsible for the template and its values.
+Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`, with `commit_message` mapped to Clipboard. If the clipboard contains `Fix login redirect`, expansion inserts `git commit Fix login redirect`. Templates are literal: Textend does not add quotes, flags, escaping, or execute commands. A runnable Git example can instead use `git commit -m "{commit_message}"`, with the user responsible for the template and its values.
 
 ## Native foundation
 
@@ -30,7 +30,7 @@ Example: name `Git Commit`, keyword `gc`, template `git commit {commit_message}`
 | Insert placeholder | Native `Menu` or anchored popover | Insert Clipboard or Date & Time at the caret; name and configure the placeholder |
 | Placeholder mappings | Lightweight rows with `TextField` and `Picker` | Map each unique name to its source; repeated names resolve consistently |
 | Preview | Read-only selectable text plus editable sample input | Resolve using sample clipboard data; do not read the real clipboard continuously |
-| Menu bar companion | `MenuBarExtra` | Open Tapster, Pause/Resume Expansion, Settings, Quit |
+| Menu bar companion | `MenuBarExtra` | Open Textend, Pause/Resume Expansion, Settings, Quit |
 | Settings | Dedicated `Settings` scene with native forms | Expansion delay, test field, launch at login, permission status, excluded apps |
 | Commands | Native application menus and `Commands` | New, Save, Duplicate, Delete, Find, Settings, Undo/Redo |
 
@@ -60,13 +60,13 @@ Settings → General → Expansion exposes the ambiguous keyword delay as a nati
 1. A bounded in-memory matcher observes the relevant keyboard events while enabled. Store only the short context needed for matching; never persist typing history.
 2. On a match, snapshot the clipboard value and resolve the complete template before removing any typed characters.
 3. Verify the target application and focus still match the captured context. Cancel on uncertainty, permission loss, secure input, or an excluded application.
-4. Replace the keyword without activating Tapster. Use Unicode events for short single-line text, and pasteboard insertion for multiline/tab-containing text or replacements longer than 200 characters. Verify both paths against real apps before claiming compatibility.
+4. Replace the keyword without activating Textend. Use Unicode events for short single-line text, and pasteboard insertion for multiline/tab-containing text or replacements longer than 200 characters. Verify both paths against real apps before claiming compatibility.
 5. Tag synthetic events to prevent loops. Keep event callbacks short, serialize replacements, and handle event-tap timeout/disable recovery without swallowing normal typing.
-6. If pasteboard insertion is needed, capture supported original representations before writing. Restore only if the pasteboard still contains Tapster's own write; never overwrite a newer user copy. Paste consumption timing is app-dependent and must be validated, not assumed.
+6. If pasteboard insertion is needed, capture supported original representations before writing. Restore only if the pasteboard still contains Textend's own write; never overwrite a newer user copy. Paste consumption timing is app-dependent and must be validated, not assumed.
 
 Request Accessibility access when the user enables expansion. Check the event monitoring/posting permissions required by the selected strategy on supported OS versions; do not blindly request additional access. Snippet management remains usable without expansion permission. Status distinguishes active, paused, permission required, and secure input unavailable.
 
-Protected input and some custom editors cannot be promised to work. Secure Event Input must be respected. Composition input, dead keys, alternate layouts, rapid focus changes, and nonstandard editors are acceptance-test cases; pause matching when composition cannot be tracked reliably. Exclude Tapster's own editor except for an explicit test field.
+Protected input and some custom editors cannot be promised to work. Secure Event Input must be respected. Composition input, dead keys, alternate layouts, rapid focus changes, and nonstandard editors are acceptance-test cases; pause matching when composition cannot be tracked reliably. Exclude Textend's own editor except for an explicit test field.
 
 Closing the main window leaves expansion running via the menu bar. Quit stops it. Launch at login is opt-in using `SMAppService.mainApp`.
 
@@ -74,7 +74,7 @@ Closing the main window leaves expansion running via the menu bar. Quit stops it
 
 The workspace was empty when planning began. [Espanso](https://github.com/espanso/espanso) is an existing Rust text expansion engine, published under GPL-3.0, with [documented dynamic variables and injection strategies](https://espanso.org/docs/matches/basics/). Reusing it remains a candidate, but would introduce an external engine, process/configuration integration, and a licensing decision.
 
-Selected approach: use Apple's existing UI, text editing, persistence, event, and pasteboard APIs, with a small Tapster-specific matching/resolution layer. No separate engine process, configuration format, or external package is required. Espanso internals have not been copied or ported.
+Selected approach: use Apple's existing UI, text editing, persistence, event, and pasteboard APIs, with a small Textend-specific matching/resolution layer. No separate engine process, configuration format, or external package is required. Espanso internals have not been copied or ported.
 
 ## Implementation sequence
 

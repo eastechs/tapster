@@ -2,28 +2,28 @@
 import PackageDescription
 
 let package = Package(
-  name: "TapsterCore",
+  name: "TextendCore",
   platforms: [.macOS(.v14)],
-  products: [.library(name: "TapsterCore", targets: ["TapsterCore"])],
+  products: [.library(name: "TextendCore", targets: ["TextendCore"])],
   targets: [
     .target(
-      name: "TapsterCore", path: "Tapster",
+      name: "TextendCore", path: "Textend",
       exclude: [
-        "App/TapsterApp.swift", "App/UpdaterService.swift", "Support", "Views", "Resources",
+        "App/TextendApp.swift", "App/UpdaterService.swift", "Support", "Views", "Resources",
       ],
       sources: [
         "Core", "Models", "Stores", "Services", "App/AppState.swift",
         "App/EditorDraftBinding.swift",
       ]),
     .testTarget(
-      name: "TapsterCoreTests", dependencies: ["TapsterCore"], path: "Tests/TapsterCoreTests"),
+      name: "TextendCoreTests", dependencies: ["TextendCore"], path: "Tests/TextendCoreTests"),
     .target(
-      name: "TapsterLayout", path: "Tapster/Support",
+      name: "TextendLayout", path: "Textend/Support",
       exclude: [
         "LibrarySplitView.swift", "WindowLifecycleView.swift", "ThemedSelectionBridge.swift",
       ],
       sources: ["PinnedContentController.swift", "DockVisibility.swift"]),
     .testTarget(
-      name: "TapsterLayoutTests", dependencies: ["TapsterLayout"], path: "Tests/TapsterLayoutTests"),
+      name: "TextendLayoutTests", dependencies: ["TextendLayout"], path: "Tests/TextendLayoutTests"),
   ]
 )
