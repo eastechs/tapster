@@ -4,6 +4,8 @@
 
 A native macOS snippet manager and text expander built with SwiftUI, AppKit, and SwiftData. Requires macOS 14 or later and Xcode 27 to build the layered app icon.
 
+![Textend in Light appearance, showing collections, the snippet list, the Email Signature editor, and its expanded preview.](docs/screenshots/textend-0.2.1-light.png)
+
 Source code is available under the [MIT license](LICENSE). The Textend name and
 artwork are reserved; see [TRADEMARK.md](TRADEMARK.md). Sparkle's license and
 third-party notices are included in [Sparkle-LICENSE.txt](Textend/Resources/Sparkle-LICENSE.txt).
