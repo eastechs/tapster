@@ -76,7 +76,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Keep Textend available",
           body:
-            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library, access Settings, pause expansion, or quit. In Settings → General → App Behavior, turn off Always show Textend in the Dock to hide the Dock icon after the last window closes. The icon returns when you open a window. Minimized windows keep the icon available, and the preference is remembered on this Mac. Launch at login is optional in the same section."
+            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library, access Settings, pause expansion, or quit. In Settings → General → App Behavior, turn off Show Textend in the Dock, then quit and reopen Textend. The Dock icon stays hidden even while windows are open. Changing the setting does not hide windows or interrupt editing; it takes effect on the next launch. The preference is remembered on this Mac. Launch at login is optional in the same section."
         ),
       ]),
     HelpTopic(
@@ -116,7 +116,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Use the clipboard",
           body:
-            "Copy the value you want before expanding. If the clipboard has no text, Textend leaves the keyword unchanged. Clipboard text is inserted literally, including any braces it contains.",
+            "Copy text or files before expanding. Copied files use their full paths; multiple paths are separated by newlines. Text and paths are inserted literally, without adding quotes or escaping. Image pixels alone have no file path, so save and copy the image file first. If the clipboard has neither text nor file references, Textend leaves the keyword unchanged.",
           example:
             "Template: git commit {commit_message}\nSource: commit_message → Clipboard\nClipboard: Fix login redirect\nResult: git commit Fix login redirect"
         ),

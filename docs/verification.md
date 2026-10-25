@@ -560,3 +560,110 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   result. This verifies the short, single-line caret path in TextEdit; live
   multiline/paste insertion and caret compatibility in other apps remain unverified.
 - No commit, push, release publication, or installed-app replacement performed.
+
+## Snippet sorting and empty sample clipboard (2026-10-24)
+
+- Dave reported that his release tests passed after publishing 0.2.0. The existing
+  commits were already pushed; `git push origin main` confirmed up to date.
+- Added a native sort menu beside the library title/count: A–Z (default) and
+  Created At (Newest First). The local choice persists across launches. Saved
+  snippets sort after filtering, with stable name/ID tie breaks; unsaved new
+  snippets retain their pinned position. Sorting does not change the current
+  selection, dirty draft, stored records, or expansion index.
+- Sample clipboard starts empty. A valid clipboard-based template now asks for
+  sample text in the preview instead of suggesting its template is incomplete.
+- Seven focused draft tests pass, including sorting, filter membership, persisted
+  selection of sort order, unknown-preference fallback, and dirty-draft retention.
+  Strict formatting, whitespace checks, and the provisioned Debug build pass.
+  Review-loop completed a clean first pass over the diff, native-control reuse,
+  preference scope, selection behavior, and sibling conventions.
+- Native inspection of the changed header/menu is pending. These new changes
+  have not been committed, pushed, or released.
+
+## Clipboard file paths and Dock-flash investigation (2026-10-24)
+
+- Clipboard resolution now uses AppKit's `readObjects(forClasses:options:)` with
+  `urlReadingFileURLsOnly` to read copied file references as literal full paths,
+  joining multiple files with newlines. File references take precedence over
+  display-name text; ordinary text remains the fallback. Both automatic expansion
+  and Copy Expanded Text use the same reader. No files are opened, image files
+  created, shell quoting added, or clipboard contents modified while reading.
+- Raw image data without text/file references remains unsupported. Help now
+  explains saving and copying the image file first. The existing clipboard
+  snapshot and change-count restoration guards remain intact.
+- Twelve focused insertion tests pass, including one/multiple file references,
+  spaces/Unicode/braces, text fallback, raw PNG data, literal resolution, and
+  preservation of original file/name representations. Strict formatting,
+  whitespace checks, and the provisioned Debug build pass. Review-loop tightened
+  the raw-image fixture in pass 1; pass 2 found no further issues. Physical file
+  expansion in a host app is not yet verified. Dave chose to verify the UI himself.
+- Inspected DockVisibility and the previously approved Herd-style behavior: after
+  the last window closes, it switches from regular to accessory policy. This is
+  a plausible cause of the reported whole-menu-bar redraw, but the flash was not
+  reproduced or measured by the agent. No speculative timing/activation changes
+  were made. A persistent menu-bar-only mode could avoid these policy transitions,
+  but would change the approved behavior and requires a separate decision and
+  native verification. The running installed release was left untouched.
+
+## Startup-only Dock mode (2026-10-24)
+
+- Dave approved replacing the Herd-style behavior with true menu-bar-only mode.
+  Removed all window notification observers and runtime Dock-policy changes.
+  `LSUIElement` starts the app as an agent; the saved Show Textend in the Dock
+  preference selects regular or accessory policy once in willFinishLaunching.
+  Repeated callbacks cannot switch it later. Opening/closing windows has no policy
+  effects, and settings changes only save the next-launch preference.
+- Settings and Help explain quit/reopen behavior and show a pending-restart label
+  when the saved preference differs from the running policy. Normal quit retains
+  the existing unsaved-draft Save/Discard/Cancel protection.
+- All 54 Swift tests pass (49 core, 5 layout), including startup policies,
+  window-close/reopen independence, pending preference changes, rejection handling,
+  sorting, and clipboard paths. Strict formatting, whitespace checks, and the
+  provisioned Debug build pass; the built plist contains LSUIElement=true.
+  Review-loop completed a clean pass over startup order, remaining policy call
+  sites, settings persistence, menu reopening paths, docs, and tests.
+- Closed the installed 0.2.0 process after confirming no selected/dirty draft,
+  then launched the development build with --sync-preview. The library opened;
+  Settings showed Show Textend in the Dock off with no restart pending. Closed
+  only Settings and left the isolated library open for Dave's check. Expansion is
+  paused in this preview. Installed app files and production library are unchanged.
+- The full-screen menu-bar flash and menu-bar reopening require Dave's physical
+  check; no claim of visual acceptance yet. No commit, push, or release.
+- Dave subsequently confirmed that closing/reopening the library with the Dock
+  icon hidden is better in the startup-only mode. This is user-reported visual
+  acceptance of the revised behavior; the agent did not measure menu-bar frames.
+
+### Sort menu alignment follow-up
+
+- Dave identified excessive trailing space beside the sort control. It was inside
+  the library title's preferred-width hosted view, whose SwiftUI spacer could not
+  consume the rest of the native toolbar segment.
+- Moved sort into a separate 24-point hosted toolbar item immediately before the
+  snippet-list tracking separator, with a native flexible space between the title
+  and sort item. Restored the title's original sizing. No panel constraints or
+  sorting behavior changed.
+- Review-loop passed for this layout-only diff; strict formatting, whitespace,
+  and the provisioned build pass. Reopened the isolated preview and confirmed
+  the separate accessible toolbar control. Dave retains visual verification.
+
+### CleanShot clipboard verification
+
+- Dave recopied directly from CleanShot. A read-only pasteboard inspection found
+  one item with public.file-url and public.png. AppKit's file-URL reader returned
+  the underlying CleanShot media file with spaces decoded in its path.
+- Created Clipboard Path Check / zzclip / {clipboard} with a Clipboard mapping
+  in the isolated development library. Invoked Copy Expanded Text in the running
+  build; subsequent inspection confirmed plain text containing the exact full
+  CleanShot image path. No application error appeared. This action intentionally
+  replaced the copied image with the resolved path, as Copy Expanded Text does.
+- Automatic typing remains unverified in this build: the preview reported
+  Permission required. Its earlier paused state and separate test library also
+  explain why production keywords could not be used in the preview. No additional
+  clipboard code changes were needed for CleanShot's file-url/png combination.
+
+### User acceptance and commit
+
+- Dave reported testing the pending changes and authorized committing all of them.
+  This is user-reported acceptance; no additional specific test matrix or agent
+  measurement is implied. The earlier automated/build/review results remain as
+  recorded above.

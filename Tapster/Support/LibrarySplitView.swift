@@ -35,6 +35,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
   private static let sidebarDivider = NSToolbarItem.Identifier("tapster.sidebarDivider")
   private static let listDivider = NSToolbarItem.Identifier("tapster.listDivider")
   private static let libraryTitle = NSToolbarItem.Identifier("tapster.libraryTitle")
+  private static let snippetSort = NSToolbarItem.Identifier("tapster.snippetSort")
   private static let snippetTitle = NSToolbarItem.Identifier("tapster.snippetTitle")
   private static let newSnippet = NSToolbarItem.Identifier("tapster.newSnippet")
   private static let saveSnippet = NSToolbarItem.Identifier("tapster.saveSnippet")
@@ -110,7 +111,8 @@ struct LibrarySplitView: NSViewControllerRepresentable {
 
   func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
     [
-      .toggleSidebar, Self.sidebarDivider, Self.libraryTitle, Self.listDivider,
+      .toggleSidebar, Self.sidebarDivider, Self.libraryTitle, .flexibleSpace,
+      Self.snippetSort, Self.listDivider,
       Self.snippetTitle, .flexibleSpace, Self.newSnippet, Self.saveSnippet,
     ]
   }
@@ -134,6 +136,10 @@ struct LibrarySplitView: NSViewControllerRepresentable {
       return hostedItem(
         identifier, label: "Collection", content: LibraryHeaderView(state: state),
         minimum: 40, preferred: 120, maximum: 240)
+    case Self.snippetSort:
+      return hostedItem(
+        identifier, label: "Sort snippets", content: SnippetSortMenu(state: state),
+        minimum: 24, preferred: 24, maximum: 24)
     case Self.snippetTitle:
       return hostedItem(
         identifier, label: "Snippet", content: SnippetHeaderView(state: state),

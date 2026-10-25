@@ -4,6 +4,58 @@ import XCTest
 @testable import TapsterCore
 
 final class InsertionTests: XCTestCase {
+  @MainActor func testClipboardFilesResolveToLiteralPathsAndPreserveRepresentations() throws {
+    let pasteboard = NSPasteboard(name: .init(UUID().uuidString))
+    defer { pasteboard.releaseGlobally() }
+    let paths = ["/tmp/Test image {one}.png", "/tmp/Café #2.jpg"]
+    XCTAssertTrue(pasteboard.writeObjects([URL(fileURLWithPath: paths[0]) as NSURL]))
+    XCTAssertEqual(TextInsertionService.clipboardText(from: pasteboard), paths[0])
+    pasteboard.clearContents()
+    let items = paths.map { path in
+      let item = NSPasteboardItem()
+      item.setString(URL(fileURLWithPath: path).absoluteString, forType: .fileURL)
+      item.setString(URL(fileURLWithPath: path).lastPathComponent, forType: .string)
+      return item
+    }
+    XCTAssertTrue(pasteboard.writeObjects(items))
+    let originalChangeCount = pasteboard.changeCount
+    let focus = Focus()
+    let service = TextInsertionService(
+      focus: focus, pasteboard: pasteboard, secureInput: { false }, postEvent: { _ in })
+    defer { service.finish() }
+    XCTAssertEqual(service.readText(), paths.joined(separator: "\n"))
+    XCTAssertEqual(pasteboard.changeCount, originalChangeCount)
+    let snippet = SnippetRecord(
+      name: "Files", keyword: "files", template: "Files:\n{clipboard}",
+      placeholders: [PlaceholderDefinition(name: "clipboard")])
+    let result = try TemplateResolver.resolve(snippet, clipboard: service.readText())
+    XCTAssertEqual(result, "Files:\n" + paths.joined(separator: "\n"))
+    try service.replace(keyword: "files", with: result, target: XCTUnwrap(focus.value))
+    service.finish()
+    XCTAssertEqual(service.readText(), paths.joined(separator: "\n"))
+    XCTAssertEqual(pasteboard.pasteboardItems?.count, 2)
+    XCTAssertEqual(
+      pasteboard.pasteboardItems?.first?.string(forType: .string), "Test image {one}.png")
+  }
+
+  @MainActor func testClipboardTextAndImagesWithoutFileReferences() {
+    let pasteboard = NSPasteboard(name: .init(UUID().uuidString))
+    defer { pasteboard.releaseGlobally() }
+    pasteboard.setString("https://example.com/image.png", forType: .string)
+    XCTAssertEqual(
+      TextInsertionService.clipboardText(from: pasteboard), "https://example.com/image.png")
+    pasteboard.clearContents()
+    let png = Data(
+      base64Encoded:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jXioAAAAASUVORK5CYII="
+    )!
+    XCTAssertTrue(pasteboard.setData(png, forType: .png))
+    XCTAssertTrue(pasteboard.types?.contains(.png) == true)
+    XCTAssertNil(TextInsertionService.clipboardText(from: pasteboard))
+    pasteboard.clearContents()
+    XCTAssertNil(TextInsertionService.clipboardText(from: pasteboard))
+  }
+
   @MainActor final class Focus: ExpansionFocus {
     var value: ExpansionTarget? = ExpansionTarget(processID: 1, focusID: "test")
     var range: CFRange?

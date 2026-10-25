@@ -6,6 +6,8 @@ import SwiftUI
 
   func applicationWillFinishLaunching(_ notification: Notification) {
     NSWindow.allowsAutomaticWindowTabbing = false
+    let showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+    DockVisibility.shared.start(showInDock: showDockIcon)
     let appearance =
       AppAppearance(
         rawValue: UserDefaults.standard.string(forKey: "textendAppearance") ?? "system") ?? .system
@@ -13,8 +15,6 @@ import SwiftUI
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    let showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
-    DockVisibility.shared.start(alwaysVisible: showDockIcon)
     NSApp.activate(ignoringOtherApps: true)
   }
 
@@ -26,7 +26,6 @@ import SwiftUI
   }
 
   func applicationWillTerminate(_ notification: Notification) {
-    DockVisibility.shared.stop()
     state?.engine.stop()
   }
 }

@@ -58,16 +58,18 @@ struct SettingsView: View {
             .font(.caption).foregroundStyle(.secondary)
         }
         Section {
-          Toggle(
-            "Always show Textend in the Dock",
-            isOn: Binding(get: { showDockIcon }, set: setDockVisibility))
+          Toggle("Show Textend in the Dock", isOn: $showDockIcon)
+          if DockVisibility.shared.requiresRestart(showInDock: showDockIcon) {
+            Label("Quit and reopen Textend to apply this change.", systemImage: "arrow.clockwise")
+              .font(.caption).foregroundStyle(.secondary)
+          }
           Toggle(
             "Launch Textend at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
         } header: {
           Text("App Behavior")
         } footer: {
           Text(
-            "When off, Textend appears in the Dock while a window is open. After the last window closes, use the menu bar icon to reopen it. Expansion keeps running."
+            "Changes take effect after restarting Textend. When off, the Dock icon stays hidden even with windows open. Use the menu bar icon to reopen the library or Settings. Expansion keeps running."
           )
           .font(.caption).foregroundStyle(.secondary)
         }
@@ -177,14 +179,6 @@ struct SettingsView: View {
       settingsError = error.localizedDescription
       launchAtLogin = SMAppService.mainApp.status == .enabled
     }
-  }
-
-  private func setDockVisibility(_ visible: Bool) {
-    guard DockVisibility.shared.setAlwaysVisible(visible) else {
-      settingsError = "macOS couldn’t change Dock visibility. Please try again."
-      return
-    }
-    showDockIcon = visible
   }
 
   private func addExcludedApp() {

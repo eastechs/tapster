@@ -7,8 +7,27 @@ enum LibrarySelection: Hashable {
   case collection(UUID)
 }
 
+enum SnippetSortOrder: String, CaseIterable, Identifiable {
+  case name, createdAt
+  var id: String { rawValue }
+  var title: String { self == .name ? "A–Z" : "Created At (Newest First)" }
+
+  func precedes(_ lhs: SnippetRecord, _ rhs: SnippetRecord) -> Bool {
+    if self == .createdAt, lhs.createdAt != rhs.createdAt {
+      return lhs.createdAt > rhs.createdAt
+    }
+    let comparison = lhs.name.localizedStandardCompare(rhs.name)
+    return comparison == .orderedSame
+      ? lhs.id.uuidString < rhs.id.uuidString : comparison == .orderedAscending
+  }
+}
+
 @MainActor @Observable final class AppState {
   let store: LibraryStore
+  private let preferences: UserDefaults
+  var sortOrder: SnippetSortOrder {
+    didSet { preferences.set(sortOrder.rawValue, forKey: "snippetSortOrder") }
+  }
   let engine = ExpansionEngine()
   var restartApproved = false
   var scope: LibrarySelection = .all
@@ -16,7 +35,7 @@ enum LibrarySelection: Hashable {
   var draft: SnippetRecord?
   private var baseline: SnippetRecord?
   var search = ""
-  var sampleClipboard = "Fix login redirect"
+  var sampleClipboard = ""
   var errorMessage: String?
   var isSearchFocused = false
   var pendingAction: (() -> Void)?
@@ -24,8 +43,14 @@ enum LibrarySelection: Hashable {
   var collectionToEdit: CollectionRecord?
   var showingCollectionSheet = false
 
-  init(store: LibraryStore, seedExamples: Bool = false, startEngine: Bool = true) {
+  init(
+    store: LibraryStore, seedExamples: Bool = false, startEngine: Bool = true,
+    preferences: UserDefaults = .standard
+  ) {
     self.store = store
+    self.preferences = preferences
+    sortOrder =
+      SnippetSortOrder(rawValue: preferences.string(forKey: "snippetSortOrder") ?? "") ?? .name
     if seedExamples && !UserDefaults.standard.bool(forKey: "hasCreatedLibrary") {
       do {
         try store.seedExamples()
@@ -56,7 +81,7 @@ enum LibrarySelection: Hashable {
           || [snippet.name, snippet.keyword, snippet.template].contains {
             $0.localizedCaseInsensitiveContains(query)
           })
-    }
+    }.sorted(by: sortOrder.precedes)
   }
 
   var remoteDraftDeleted: Bool {
@@ -309,7 +334,7 @@ enum LibrarySelection: Hashable {
     guard let draft else { return }
     do {
       let value = try TemplateResolver.resolve(
-        draft, clipboard: NSPasteboard.general.string(forType: .string))
+        draft, clipboard: TextInsertionService.clipboardText(from: .general))
       NSPasteboard.general.clearContents()
       NSPasteboard.general.setString(value, forType: .string)
     } catch { errorMessage = error.localizedDescription }

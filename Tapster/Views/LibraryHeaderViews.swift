@@ -29,6 +29,26 @@ struct LibraryHeaderView: View {
   }
 }
 
+struct SnippetSortMenu: View {
+  @Bindable var state: AppState
+
+  var body: some View {
+    Menu {
+      Picker("Sort by", selection: $state.sortOrder) {
+        ForEach(SnippetSortOrder.allCases) { order in
+          Text(order.title).tag(order)
+        }
+      }
+    } label: {
+      Image(systemName: "arrow.up.arrow.down")
+    }
+    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+    .help("Sort snippets: \(state.sortOrder.title)")
+    .accessibilityLabel("Sort snippets")
+    .accessibilityValue(state.sortOrder.title)
+  }
+}
+
 struct SnippetHeaderView: View {
   var state: AppState
 

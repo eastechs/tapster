@@ -32,7 +32,18 @@ import CoreGraphics
     self.schedule = schedule
     self.cursorFailure = cursorFailure
   }
-  func readText() -> String? { pasteboard.string(forType: .string) }
+  func readText() -> String? { Self.clipboardText(from: pasteboard) }
+
+  static func clipboardText(from pasteboard: NSPasteboard) -> String? {
+    // Finder can supply a display name alongside a file URL. Use the actual
+    // path for copied files, without reading files or materializing image data.
+    let urls =
+      pasteboard.readObjects(
+        forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+    let paths = urls.filter(\.isFileURL).map(\.path)
+    if !paths.isEmpty { return paths.joined(separator: "\n") }
+    return pasteboard.string(forType: .string)
+  }
 
   func replace(
     keyword: String, with text: String, target: ExpansionTarget, cursorUTF16Offset: Int? = nil

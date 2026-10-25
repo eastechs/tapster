@@ -7,7 +7,10 @@ struct SnippetPreviewView: View {
 
   var body: some View {
     let result = try? TemplateResolver.resolveExpansion(draft, clipboard: state.sampleClipboard)
-    let unresolvedMessage = "Complete the template and mappings to preview."
+    let unresolvedMessage =
+      state.copyError == nil && state.sampleClipboard.isEmpty
+      ? "Enter sample clipboard text to preview."
+      : "Complete the template and mappings to preview."
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
         Text("Preview").font(.headline)

@@ -3,6 +3,43 @@ import XCTest
 @testable import TapsterCore
 
 final class DraftTests: XCTestCase {
+  @MainActor func testSortingPersistsWithoutChangingDraftOrFilteredMembership() throws {
+    let suite = "TextendSortTests.\(UUID().uuidString)"
+    let preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { preferences.removePersistentDomain(forName: suite) }
+    let store = try LibraryStore(inMemory: true)
+    let older = SnippetRecord(
+      name: "Alpha", template: "Find me", isFavorite: true,
+      createdAt: Date(timeIntervalSince1970: 1))
+    let newer = SnippetRecord(
+      name: "Zulu", template: "Find me", createdAt: Date(timeIntervalSince1970: 2))
+    try store.save(newer)
+    try store.save(older)
+    let state = AppState(store: store, startEngine: false, preferences: preferences)
+    XCTAssertEqual(state.filteredSnippets.map(\.id), [older.id, newer.id])
+    XCTAssertEqual(state.sampleClipboard, "")
+    state.draft?.template = "Unsaved edit"
+    let selected = state.selectedID
+    state.sortOrder = .createdAt
+    XCTAssertEqual(state.filteredSnippets.map(\.id), [newer.id, older.id])
+    XCTAssertEqual(state.selectedID, selected)
+    XCTAssertEqual(state.draft?.template, "Unsaved edit")
+    XCTAssertTrue(state.isDirty)
+    XCTAssertFalse(state.showingUnsavedAlert)
+    state.search = "find"
+    state.scope = .favorites
+    XCTAssertEqual(state.filteredSnippets.map(\.id), [older.id])
+    state.scope = .all
+    state.search = "Zulu"
+    XCTAssertEqual(state.filteredSnippets.map(\.id), [newer.id])
+    let restored = AppState(store: store, startEngine: false, preferences: preferences)
+    XCTAssertEqual(restored.sortOrder, .createdAt)
+    XCTAssertEqual(restored.filteredSnippets.map(\.id), [newer.id, older.id])
+    preferences.set("unknown", forKey: "snippetSortOrder")
+    XCTAssertEqual(
+      AppState(store: store, startEngine: false, preferences: preferences).sortOrder, .name)
+  }
+
   @MainActor private func state() throws -> AppState {
     let store = try LibraryStore(inMemory: true)
     try store.save(SnippetRecord(name: "First", keyword: "one", template: "Original"))
