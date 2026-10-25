@@ -133,7 +133,7 @@ import SwiftUI
     }
     .defaultSize(width: 860, height: 600)
 
-    MenuBarExtra("Textend", systemImage: "text.insert") {
+    MenuBarExtra("Textend", image: "MenuBarIcon") {
       if let state = bootstrap.state {
         MenuBarContent(state: state, updater: bootstrap.updater).textendTheme()
       } else {

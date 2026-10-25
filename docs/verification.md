@@ -503,3 +503,22 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
 - Only one Textend preview process is running. No temporary tracing remains in
   the app. Saved snippets, launch-at-login, and the installed release are unchanged.
   No commit, push, release publication, or installed-app replacement performed.
+
+## Textend logo in the menu bar (2026-10-24)
+
+- Replaced the `text.insert` system symbol with a 24 × 18 point template asset
+  using the exact two vector paths from the approved X2 app icon. The asset
+  retains vector data; macOS supplies its menu bar tint. The menu's accessible
+  title remains Textend, and its commands are unchanged. Uses the native
+  [MenuBarExtra image initializer](https://developer.apple.com/documentation/swiftui/menubarextra).
+- The provisioned Debug build succeeds without warnings. Loaded the image from
+  the built app and verified its dimensions and `isTemplate` flag; compared both
+  paths with the original logo and inspected the rendered compiled artwork.
+  Strict Swift formatting and whitespace checks pass. Review-loop completed a
+  clean first pass over the code, asset metadata, packaging, and existing menu.
+- Replaced the existing development process with one rebuilt preview. The
+  library opens normally. The inspection tool timed out accessing the system
+  menu bar, so actual status-item appearance and clicks were not inspected.
+  No installed-app replacement, commit, push, or release publication performed.
+- Dave subsequently inspected the menu bar logo, approved its appearance, and
+  requested this commit. Menu command behavior was not retested by the agent.
