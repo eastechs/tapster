@@ -2,6 +2,13 @@
 
 A native macOS snippet manager and text expander built with SwiftUI, AppKit, and SwiftData. Requires macOS 14 or later and Xcode 27 to build the layered app icon.
 
+Source code is available under the [MIT license](LICENSE). The Textend name and
+artwork are reserved; see [TRADEMARK.md](TRADEMARK.md). Sparkle's license and
+third-party notices are included in [Sparkle-LICENSE.txt](Tapster/Resources/Sparkle-LICENSE.txt).
+External code contributions are currently closed and pull requests are disabled.
+[Bug reports and feature requests](https://github.com/eastechs/tapster/issues) are
+welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Run
 
 Open `Tapster.xcodeproj`, select the Tapster scheme, and run, or use:
@@ -12,7 +19,21 @@ Open `Tapster.xcodeproj`, select the Tapster scheme, and run, or use:
 
 The Codex Run action uses the same script. It supports `--build-only`, `--verify`, `--debug`, `--logs`, and `--telemetry`.
 
-Local builds use an existing Apple Development identity when available, otherwise ad-hoc signing. Set `TEXTEND_SIGNING_IDENTITY` (the old `TAPSTER_SIGNING_IDENTITY` also works) to select an identity explicitly. The application is built at `build/Build/Products/Debug/Textend.app`. Local development signing does not produce a notarized release.
+The checked-in project and scripts target Eastechs' provisioned CloudKit identity.
+The script requires a matching Apple Development certificate and CloudKit
+development profile; it does not fall back to ad-hoc signing. See
+[iCloud provisioning](docs/icloud-sync.md). The application is built at
+`build/Build/Products/Debug/Textend.app`. Local development signing does not
+produce a notarized release.
+
+For an independent build, configure your own Apple Developer team, bundle ID,
+CloudKit container, and provisioning profiles in Xcode. Update the corresponding
+identifiers in `Config/CloudKit.entitlements`,
+`Tapster/Services/SyncConfiguration.swift`, and `script/provisioning.py` if using
+the scripts. Distributed forks also need their own branding, release configuration
+in `script/release.py`, and Sparkle update feed/key in `Config/Updates.xcconfig`;
+do not ship a fork pointing to Textend's
+official updates. The tests below can run without Eastechs' signing credentials.
 
 ## Snippets
 
@@ -22,7 +43,7 @@ Save before trying a keyword. Templates insert literal text; Textend never execu
 
 Enable expansion in Settings and allow Accessibility when macOS asks. Accessibility covers both keyboard monitoring and insertion for Textend's active event tap; a separate Input Monitoring grant is not needed. The menu bar can pause or resume expansion, and closing the library window keeps Textend running. Launch at login is optional.
 
-If an older development build was authorized before changing its signing identity, macOS may still show Tapster or Textend enabled while rejecting the current app. Remove the old entry from Accessibility, add the current `build/Build/Products/Debug/Textend.app`, and enable it again. The build script uses the available Apple Development identity to preserve identity across rebuilds.
+If an older development build was authorized before changing its signing identity, macOS may still show Tapster or Textend enabled while rejecting the current app. Remove the old entry from Accessibility, add the current `build/Build/Products/Debug/Textend.app`, and enable it again. The build script uses the provisioned Apple Development identity to preserve identity across rebuilds.
 
 For overlapping keywords such as `gc` and `gco`, Textend waits 250 ms after an ambiguous exact match. Tune this under Settings → General → Expansion, from 100 to 1,000 ms. Unambiguous matches expand immediately. Continuing into an incomplete or unrelated keyword cancels the pending shorter match and retains typed text.
 

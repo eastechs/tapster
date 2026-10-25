@@ -692,3 +692,24 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   remains monochrome, and menu-bar-only mode continues hiding the Dock icon.
 - Dave inspected the preview, reported that it looks good, and authorized the
   commit. This records user visual acceptance of the theme-colored icons.
+
+## 2026-10-25: public source and 0.2.1 preparation
+
+- Dave selected MIT for the code. Added the license, a bundled license copy,
+  reserved-brand policy, closed-contribution policy, and 0.2.1 release notes.
+  Corrected obsolete ad-hoc build instructions to describe CloudKit provisioning
+  and independent fork identities. The local release workflow is unchanged.
+- GitHub's API confirms pull requests are disabled and Issues remain enabled.
+  Before publication, fetched all remote refs and ran a redacted Gitleaks scan
+  across all 17 existing commits with zero findings. The remote has only main;
+  no tags or additional branches were present. Tracked filenames and identity
+  references were also inspected; credentials, profiles, stores, and release
+  artifacts are not tracked. This is a scoped audit, not a guarantee that every
+  possible secret pattern can be detected.
+- Full acceptance checks pass: 54 Swift tests (49 core and 5 layout), 16 offline
+  release tests, 5 provisioning tests, strict formatting, shell syntax, whitespace,
+  and the provisioned Debug build. The built app contains the exact MIT license.
+- Review-loop clean pass: reviewed all new policy files, release notes, README
+  corrections, bundled license, and the license-consistency check. No application
+  behavior changed during release preparation. Visual acceptance remains Dave's
+  earlier reported testing of the included changes.
