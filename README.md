@@ -1,5 +1,7 @@
 # Textend
 
+[Website, downloads, and documentation](https://usetextend.com/)
+
 A native macOS snippet manager and text expander built with SwiftUI, AppKit, and SwiftData. Requires macOS 14 or later and Xcode 27 to build the layered app icon.
 
 Source code is available under the [MIT license](LICENSE). The Textend name and
