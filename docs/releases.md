@@ -116,6 +116,27 @@ The feed currently advertises the latest universal macOS 14+ release. Previous Z
 remain hosted. Before changing the minimum macOS version, introduce a feed that
 retains older compatible releases rather than dropping those users' update path.
 
+## Tag every published release
+
+Every release must have an annotated Git tag pushed to GitHub. After publication
+and CDN verification succeed, create `v<version>` at the exact `source_revision`
+recorded in that release's `dist/<version>-<build>/release.json`. Do not tag the
+current HEAD unless it is that recorded commit; verification notes may have been
+committed after the app was built. Include the version, build number, and archive
+SHA-256 in the tag annotation, then push that specific tag and verify its remote
+target before considering release work complete.
+
+Never move or overwrite a published tag. If another build ships with the same
+marketing version, use `v<version>-build.<build>` for that additional release.
+Creating a source tag does not publish another binary or change the update feed.
+
+| Release tag | Build | Source commit |
+| --- | --- | --- |
+| `v0.1.0` | 2 | `e222d9d54a67b3032cbcecbcd70674fcf48a8c37` |
+| `v0.1.1` | 3 | `495bab63158d82971f32a3694b8314951ce3af14` |
+| `v0.2.0` | 5 | `4de2845dff3bd80c9d1db3b08f74b7c64fd38022` |
+| `v0.2.1` | 6 | `eb841dd9ec5c776cc2bc4a5e7f92f0ee9a01b01c` |
+
 ## Verification before the first public release
 
 `./script/check.sh` runs app tests, offline release guards, formatting checks, and a
