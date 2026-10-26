@@ -21,7 +21,7 @@ import Observation
       cancel()
     }
   }
-  private var matcher = TriggerMatcher()
+  private var tracking = ExpansionTracking()
   private let focus = FocusService()
   @ObservationIgnored private lazy var insertion = TextInsertionService(
     focus: focus, cursorFailure: { [weak self] message in self?.lastMessage = message })
@@ -29,8 +29,6 @@ import Observation
   private var runLoopSource: CFRunLoopSource?
   private var timer: Timer?
   private var healthTimer: Timer?
-  private var target: ExpansionTarget?
-  private var expectedCaret: Int?
   private var workspaceObservers: [NSObjectProtocol] = []
 
   init() {
@@ -61,11 +59,11 @@ import Observation
 
   func updateSnippets(_ snippets: [SnippetRecord]) {
     cancel()
-    matcher.update(snippets)
+    tracking.matcher.update(snippets)
   }
   func updateDelay(_ milliseconds: Int) {
     cancel()
-    matcher.delay = Double(min(1000, max(100, milliseconds))) / 1000
+    tracking.matcher.delay = Double(min(1000, max(100, milliseconds))) / 1000
   }
 
   func setEnabled(_ enabled: Bool, requestPermission: Bool = false) {
@@ -123,6 +121,7 @@ import Observation
     if newStatus != status {
       cancel()
       status = newStatus
+      ExpansionDiagnostics.record("Engine status: \(newStatus.rawValue)", processID: 0)
     }
     guard status == .active else {
       removeTap()
@@ -136,7 +135,7 @@ import Observation
     } else {
       installTap()
     }
-    if let target, focus.currentTarget() != target { cancel() }
+    if let target = tracking.target, focus.currentTarget() != target { cancel() }
   }
 
   private func installTap() {
@@ -203,8 +202,7 @@ import Observation
       event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
       let app = NSWorkspace.shared.frontmostApplication,
       !excludedBundleIDs.contains(app.bundleIdentifier ?? ""),
-      let current = focus.currentTarget(),
-      let selection = focus.selectionRange(), selection.length == 0
+      let current = focus.currentTarget()
     else {
       cancel()
       return
@@ -213,11 +211,6 @@ import Observation
     guard ![36, 48, 51, 53, 76, 115, 116, 117, 119, 121, 123, 124, 125, 126].contains(code) else {
       cancel()
       return
-    }
-    if target != current || expectedCaret.map({ $0 != selection.location }) == true {
-      cancel()
-      target = current
-      matcher.reset(atBoundary: focus.startsAtBoundary())
     }
     var characters = [UniChar](repeating: 0, count: 16)
     var length = 0
@@ -228,47 +221,80 @@ import Observation
       return
     }
     let text = String(utf16CodeUnits: characters, count: length)
-    expectedCaret = selection.location + length
+    let selection = focus.selectionRange()
+    let starting = tracking.target != current
+    let boundary = starting ? focus.startsAtBoundary() : nil
+    if starting {
+      ExpansionDiagnostics.record(
+        boundary == false ? "Typing run begins inside a word" : "Typing run begins at a boundary",
+        processID: current.processID)
+    }
     timer?.invalidate()
-    guard let match = matcher.input(text, now: ProcessInfo.processInfo.systemUptime) else { return }
+    guard
+      let match = tracking.input(
+        text, target: current, selection: selection,
+        startsAtBoundary: boundary, now: ProcessInfo.processInfo.systemUptime)
+    else { return }
+    ExpansionDiagnostics.record("Keyword matched", processID: current.processID)
     if let deadline = match.deadline {
       timer = Timer.scheduledTimer(
         withTimeInterval: max(0, deadline - ProcessInfo.processInfo.systemUptime), repeats: false
       ) { [weak self] _ in
         MainActor.assumeIsolated {
-          self?.expand(match, target: current, caret: selection.location + length)
+          self?.expand(match, target: current)
         }
       }
     } else {
       // Return the physical event first so it reaches the host before our backspaces.
-      DispatchQueue.main.async { [weak self] in
-        self?.expand(match, target: current, caret: selection.location + length)
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+        self?.expand(match, target: current)
       }
     }
   }
 
-  private func expand(_ match: TriggerMatch, target: ExpansionTarget, caret: Int, attempt: Int = 0)
-  {
+  private func expand(_ match: TriggerMatch, target: ExpansionTarget, attempt: Int = 0) {
     guard status == .active, !FocusService.secureInputEnabled,
       AXIsProcessTrusted(), CGPreflightPostEventAccess(), focus.currentTarget() == target,
-      match.generation == matcher.generation,
-      let selection = focus.selectionRange(), selection.length == 0
+      match.generation == tracking.matcher.generation
     else { return }
+    let selection = focus.selectionRange()
+    var matchingKeyword: Bool?
+    if let selection {
+      let length = match.snippet.keyword.utf16.count
+      if selection.location >= length {
+        matchingKeyword = focus.text(
+          in: CFRange(location: selection.location - length, length: length)
+        )
+        .map { $0 == match.snippet.keyword }
+      }
+    }
     // Accessibility can trail delivery of the physical final key to another process.
-    if selection.location != caret {
-      if selection.location < caret && attempt < 5 {
+    switch tracking.readiness(selection: selection, matchingKeyword: matchingKeyword) {
+    case .cancelled:
+      cancel()
+      return
+    case .waiting:
+      if attempt < 14 {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-          self?.expand(match, target: target, caret: caret, attempt: attempt + 1)
+          self?.expand(match, target: target, attempt: attempt + 1)
         }
+      } else {
+        ExpansionDiagnostics.record(
+          "AX keyword confirmation timed out", processID: target.processID)
+        cancel()
       }
       return
+    case .ready: break
     }
-    guard let snippet = matcher.take(match, now: ProcessInfo.processInfo.systemUptime) else {
+    guard let snippet = tracking.matcher.take(match, now: ProcessInfo.processInfo.systemUptime)
+    else {
       return
     }
+    defer { tracking.reset() }
     do {
       try ExpansionTransaction.perform(
         snippet, target: target, clipboard: insertion, focus: focus, insertion: insertion)
+      ExpansionDiagnostics.record("Expansion events posted", processID: target.processID)
       lastMessage = nil
     } catch { lastMessage = error.localizedDescription }
   }
@@ -277,8 +303,6 @@ import Observation
     insertion.cancelCursorPlacement()
     timer?.invalidate()
     timer = nil
-    matcher.reset()
-    target = nil
-    expectedCaret = nil
+    tracking.reset()
   }
 }

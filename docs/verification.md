@@ -779,3 +779,92 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   source edits are renames and compatibility comments, with artwork unchanged.
 - The installed 0.2.1 app and its data were not modified. No new release was
   published and no new two-Mac sync test was performed for this source rename.
+
+## Cross-app keyword detection correction (2026-10-26)
+
+- Dave reported unchanged keywords in Safari and Firefox and earlier reported
+  that Mail did not expand. Inspection found mandatory numeric AX selection
+  ranges on every keystroke and at expansion, plus a boundary check that treated
+  unavailable adjacent text as an interior word position. These are code-level
+  blockers; the specific host failures have not yet been reproduced by the agent.
+- Keyword tracking now accepts missing numeric ranges and unknown initial
+  boundaries. Once a typing run begins, observed word interiors remain excluded.
+  Delayed per-key AX offsets no longer reset the run. Available keyword text at
+  the caret confirms the replacement even if earlier autocorrection changed the
+  predicted offset. Clicks, navigation, shortcuts, focus changes, secure input,
+  and generation checks retain cancellation. Expansions and exhausted retries
+  clear tracking so an old offset cannot poison subsequent matches.
+- Cursor markers without numeric AX ranges use tagged relative Left events for
+  at most 256 trailing characters, after a short delivery delay. Input, focus,
+  selection, and secure-input changes cancel that pending move. Longer moves
+  require AX positioning and otherwise leave the keyword unchanged. Relative
+  placement relies on host insertion timing and still needs live acceptance.
+- All 32 focused tracking, matcher, insertion, and transaction tests pass.
+  Strict formatting and whitespace checks pass. Review-loop reached a clean
+  second code pass after correcting post-expansion tracking and autocorrection
+  handling. Existing focus and template contracts were also checked.
+- The provisioned Debug app builds successfully. Xcode's generated Sparkle
+  workspace metadata still contained the old tapster checkout path; corrected
+  that one cached artifact path after normal package resolution did not repair
+  it. A backup is at /tmp/textend-package-workspace-state-before-path-repair.json.
+  Build output also reports stale pre-rename build-product paths, without source
+  compilation errors. No build scripts or dependencies were changed.
+- No installed-app replacement, process launch, commit, push, or release was
+  performed. Safari, Firefox, Mail, and TextEdit live typing remain pending.
+
+### Follow-up after Firefox and desktop-app typing checks
+
+- Dave reported that the first corrected build still worked in TextEdit, partly
+  expanded in Firefox without placing the cursor, and did nothing in ChatGPT
+  Desktop or Claude Desktop. The first patch did not establish cross-app
+  acceptance, despite passing its isolated tests.
+- Removed the remaining requirement for a focused AX element. Target identity
+  now follows the active process and its window when available. Missing,
+  disappearing, or recreated editor elements no longer invalidate a typing run.
+  Known secure fields and Textend's own editors remain excluded. Mouse and
+  keyboard navigation still cancel pending work. An unreported programmatic
+  focus change cannot be detected when the host exposes no usable context.
+- Numeric ranges alone no longer veto a match. Optional readable keyword text
+  can corroborate delivery; conflicting text gets a bounded retry. Short cursor
+  moves use tagged arrow keys even when AX reads work, avoiding dependence on
+  effective AX selection writes. Editors with numeric ranges but no readable
+  text use the relative path, and loss of text access after insertion also falls
+  back. Long moves retain the existing AX requirement and event-count bound.
+- Consulted Espanso's macOS detection and injection implementations and cursor
+  compensation middleware, and Snippety's documented relative cursor approach.
+  Reused Textend's native event and clipboard code; added no dependency or copied
+  third-party implementation.
+  References: https://github.com/espanso/espanso/tree/dev/espanso-detect/src/mac,
+  https://github.com/espanso/espanso/blob/dev/espanso-engine/src/process/middleware/action.rs,
+  https://snippety.app/help/macos/creating-template/cursor-position/.
+- Added development-only unified logs for engine status, AX availability,
+  boundary classification, matched/injected stages, and cursor strategy. Logs
+  contain fixed reasons and process IDs, with no typed text, keywords, snippet
+  contents, clipboard data, or document text. This gives subsequent physical
+  checks a repeatable diagnostic path without adding a setting or recurring job.
+- All 38 focused tests pass, along with strict formatting, whitespace, and the
+  provisioned Debug build. Review-loop's second pass was clean after tightening
+  partial-AX cursor fallback and the delayed-read regression fixtures. The tests
+  cover absent/recreated AX elements, app/window changes, secure and own-app
+  exclusions, partial and disappearing text APIs, cancellation, matching, and
+  clipboard preservation. They do not establish live cross-app behavior.
+- Refreshed the already-running development app through its normal Quit action
+  after checking that Save was disabled, then reopened the same build. Verified
+  one Textend process, PID 28222, Expansion active in the library, and actual
+  startup/typing-context diagnostic events. No installed-app replacement,
+  production-library changes, commit, push, or release. Dave retains physical
+  typing verification in Firefox, ChatGPT Desktop, and Claude Desktop.
+
+### User feedback and 0.2.2 release authorization
+
+- Dave reported that the revised development build "seems to be better," then
+  requested committing the fixes and shipping a new release. This records his
+  reported improvement and release authorization, not an exhaustive per-app
+  acceptance matrix.
+- The live feed advertises 0.2.1 (6). Selected 0.2.2 (7) for this compatibility
+  patch and added concise release notes. Source tagging follows the current
+  release policy: tag the manifest's exact source commit after publication.
+- Full acceptance checks pass: 71 Swift tests (66 core, 5 layout), 16 offline
+  release tests, 5 provisioning tests, strict formatting, shell syntax, license
+  consistency, whitespace checks, and the provisioned Debug build. The final
+  pre-commit review-loop pass found no further issues in the cumulative diff.

@@ -51,7 +51,7 @@ If an older development build was authorized before changing its signing identit
 
 For overlapping keywords such as `gc` and `gco`, Textend waits 250 ms after an ambiguous exact match. Tune this under Settings → General → Expansion, from 100 to 1,000 ms. Unambiguous matches expand immediately. Continuing into an incomplete or unrelated keyword cancels the pending shorter match and retains typed text.
 
-Protected input is excluded. Composition input methods and editors that do not expose enough accessible caret information are not supported for automatic expansion. The Settings test field uses the same expansion path while the snippet editor stays excluded.
+Protected input and composition input methods are excluded. Keyword detection follows physical typing within the active application and window, even when an editor omits or recreates its Accessibility elements. Clicks, navigation, shortcuts, and app/window changes cancel pending matches. In fields without readable context, matching starts with a fresh typing run; Textend cannot inspect the preceding word or detect an unreported programmatic field change in those fields. Cursor markers use relative keyboard navigation for up to 256 trailing characters, with native Accessibility positioning for longer moves. The Settings test field uses the same expansion path while the snippet editor stays excluded.
 
 Use File → Export Backup to save a versioned JSON backup. Import adds a validated backup atomically and rejects conflicting identifiers or exact duplicate keywords. Deleting a collection retains its snippets.
 

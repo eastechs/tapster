@@ -135,22 +135,24 @@ final class InsertionTests: XCTestCase {
     XCTAssertEqual(count, 0)
   }
 
-  @MainActor func testCursorWaitsForInsertionThenUsesAbsoluteUTF16Position() throws {
+  @MainActor func testCursorWaitsForInsertionThenMovesByCompleteCharacters() throws {
     let h = CursorHarness()
     defer { h.stop() }
     let text = "👩🏽‍💻\nhello"
     h.focus.range = CFRange(location: 12, length: 0)
+    h.focus.fieldText = String(repeating: " ", count: 10) + "gc"
     try h.service.replace(
       keyword: "gc", with: text, target: h.target,
       cursorUTF16Offset: "👩🏽‍💻\n".utf16.count)
     XCTAssertEqual(h.pasteboard.string(forType: .string), text)
     h.tick()
     XCTAssertTrue(h.focus.moves.isEmpty, "Pasting may not have been consumed yet.")
+    XCTAssertFalse(h.keys.contains(123))
     h.focus.range = CFRange(location: 10 + text.utf16.count, length: 0)
     h.focus.fieldText = String(repeating: " ", count: 10) + text
     h.tick()
-    XCTAssertEqual(h.focus.moves, [10 + "👩🏽‍💻\n".utf16.count])
-    XCTAssertFalse(h.keys.contains(123), "AX movement needs no arrow-key fallback.")
+    XCTAssertTrue(h.focus.moves.isEmpty)
+    XCTAssertEqual(h.keys.filter { $0 == 123 }.count, 10, "Move left over hello after delivery.")
     XCTAssertFalse(h.keys.contains(36))
     h.service.finish()
     XCTAssertEqual(h.pasteboard.string(forType: .string), "Original clipboard")
@@ -194,6 +196,7 @@ final class InsertionTests: XCTestCase {
     defer { h.stop() }
     try h.service.replace(keyword: "gc", with: "A\nB", target: h.target, cursorUTF16Offset: 1)
     h.focus.range = CFRange(location: 20, length: 0)  // Host added unexpected text.
+    h.focus.fieldText = String(repeating: "x", count: 20)
     h.pasteboard.clearContents()
     h.pasteboard.setString("New copy", forType: .string)
     for _ in 0..<30 { h.tick() }
@@ -211,9 +214,11 @@ final class InsertionTests: XCTestCase {
     try h.service.replace(keyword: "gc", with: "ab", target: h.target, cursorUTF16Offset: 1)
     h.tick()
     XCTAssertTrue(h.focus.moves.isEmpty)
+    XCTAssertFalse(h.keys.contains(123))
     h.focus.fieldText = "ab"
     h.tick()
-    XCTAssertEqual(h.focus.moves, [1])
+    XCTAssertEqual(h.keys.filter { $0 == 123 }.count, 2)
+    XCTAssertTrue(h.focus.moves.isEmpty)
   }
 
   @MainActor func testLongCursorMoveUsesAXWithoutFloodingHostWithArrows() throws {
@@ -247,11 +252,77 @@ final class InsertionTests: XCTestCase {
           keyword: "gc", with: "😀", target: h.target,
           cursorUTF16Offset: offset))
     }
+    XCTAssertEqual(h.keys.count, count)
+  }
+
+  @MainActor func testCursorWithoutAXRangeUsesBoundedRelativeNavigation() throws {
+    for text in ["A👩🏽‍💻e\u{301}", "A\nB"] {
+      let h = CursorHarness()
+      defer { h.stop() }
+      h.focus.range = nil
+      try h.service.replace(keyword: "gc", with: text, target: h.target, cursorUTF16Offset: 1)
+      XCTAssertFalse(h.keys.contains(123))
+      let delay = text.contains("\n") ? 0.15 : 0.04
+      let work = try XCTUnwrap(h.jobs.last(where: { $0.0 == delay })?.1)
+      work.perform()
+      XCTAssertEqual(h.keys.filter { $0 == 123 }.count, 4)
+      XCTAssertTrue(h.markers.allSatisfy { $0 == TextInsertionService.eventMarker })
+      XCTAssertTrue(h.focus.moves.isEmpty)
+    }
+  }
+
+  @MainActor func testNumericRangeWithoutReadableTextStillPlacesCursor() throws {
+    let h = CursorHarness()
+    defer { h.stop() }
+    h.focus.fieldText = nil
+    h.focus.range = CFRange(location: 2, length: 0)
+    try h.service.replace(keyword: "gc", with: "A\nB", target: h.target, cursorUTF16Offset: 1)
+    let work = try XCTUnwrap(h.jobs.first(where: { $0.0 == 0.15 })?.1)
+    work.perform()
+    XCTAssertEqual(h.keys.filter { $0 == 123 }.count, 4)
+    XCTAssertTrue(h.focus.moves.isEmpty)
+    XCTAssertTrue(h.failures.isEmpty)
+  }
+
+  @MainActor func testCursorFallsBackWhenEditorStopsExposingTextAfterInsertion() throws {
+    let h = CursorHarness()
+    defer { h.stop() }
+    try h.service.replace(keyword: "gc", with: "A\nB", target: h.target, cursorUTF16Offset: 1)
+    h.focus.fieldText = nil
+    for _ in 0..<16 { h.tick() }
+    XCTAssertEqual(h.keys.filter { $0 == 123 }.count, 4)
+    XCTAssertTrue(h.failures.isEmpty)
+  }
+
+  @MainActor func testRelativeCursorCancelsOnInputFocusSecureInputAndSelection() throws {
+    for reason in ["input", "focus", "secure", "selection", "finish"] {
+      let h = CursorHarness()
+      defer { h.stop() }
+      h.focus.range = nil
+      try h.service.replace(keyword: "gc", with: "A\nB", target: h.target, cursorUTF16Offset: 1)
+      let work = try XCTUnwrap(h.jobs.first(where: { $0.0 == 0.15 })?.1)
+      switch reason {
+      case "input": h.service.cancelCursorPlacement()
+      case "focus": h.focus.value = nil
+      case "secure": h.secure = true
+      case "selection": h.focus.range = CFRange(location: 0, length: 2)
+      default: h.service.finish()
+      }
+      work.perform()
+      XCTAssertFalse(h.keys.contains(123), reason)
+    }
+  }
+
+  @MainActor func testLongRelativeCursorMoveLeavesKeywordAndClipboardUntouched() throws {
+    let h = CursorHarness()
+    defer { h.stop() }
+    h.focus.range = nil
     XCTAssertThrowsError(
       try h.service.replace(
-        keyword: "gc", with: "hello", target: h.target,
-        cursorUTF16Offset: 2))
-    XCTAssertEqual(h.keys.count, count)
+        keyword: "gc", with: String(repeating: "x", count: 300), target: h.target,
+        cursorUTF16Offset: 0))
+    XCTAssertTrue(h.keys.isEmpty)
+    XCTAssertEqual(h.pasteboard.string(forType: .string), "Original clipboard")
   }
 }
 
@@ -275,6 +346,7 @@ final class InsertionTests: XCTestCase {
 
   init() {
     focus.range = CFRange(location: 2, length: 0)
+    focus.fieldText = "gc"
     pasteboard.setString("Original clipboard", forType: .string)
   }
   func tick() {

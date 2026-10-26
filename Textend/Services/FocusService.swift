@@ -3,51 +3,107 @@ import ApplicationServices
 import Carbon
 
 @MainActor final class FocusService: ExpansionFocus {
+  struct Application {
+    var processID: Int32
+    var bundleID: String?
+  }
+
+  private let application: @MainActor () -> Application?
+  private let attribute: @MainActor (AXUIElement, String) -> CFTypeRef?
+  private let ownBundleID: String?
+  private var processID: Int32?
+  private var focusedWindow: AXUIElement?
   private var focusedElement: AXUIElement?
   private var token = UUID().uuidString
+  private var reportedAXAvailability: Bool?
+
+  init(
+    application: @escaping @MainActor () -> Application? = {
+      NSWorkspace.shared.frontmostApplication.map {
+        Application(processID: $0.processIdentifier, bundleID: $0.bundleIdentifier)
+      }
+    },
+    attribute: @escaping @MainActor (AXUIElement, String) -> CFTypeRef? = { element, name in
+      var value: CFTypeRef?
+      guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else {
+        return nil
+      }
+      return value
+    }, ownBundleID: String? = Bundle.main.bundleIdentifier
+  ) {
+    self.application = application
+    self.attribute = attribute
+    self.ownBundleID = ownBundleID
+  }
 
   func currentTarget() -> ExpansionTarget? {
-    guard let application = NSWorkspace.shared.frontmostApplication else { return nil }
-    let app = AXUIElementCreateApplication(application.processIdentifier)
+    guard let application = application() else {
+      focusedElement = nil
+      focusedWindow = nil
+      processID = nil
+      return nil
+    }
+    let app = AXUIElementCreateApplication(application.processID)
     AXUIElementSetMessagingTimeout(app, 0.015)
-    var value: CFTypeRef?
-    guard
-      AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &value)
-        == .success,
-      let value, CFGetTypeID(value) == AXUIElementGetTypeID()
-    else { return nil }
-    let element = value as! AXUIElement
-    AXUIElementSetMessagingTimeout(element, 0.015)
-    if application.bundleIdentifier == Bundle.main.bundleIdentifier {
-      var identifier: CFTypeRef?
-      AXUIElementCopyAttributeValue(element, kAXIdentifierAttribute as CFString, &identifier)
-      guard identifier as? String == "textend-expansion-test" else { return nil }
+    let element = elementAttribute(app, kAXFocusedUIElementAttribute)
+    focusedElement = element
+    if let element { AXUIElementSetMessagingTimeout(element, 0.015) }
+    if let ownBundleID, application.bundleID == ownBundleID {
+      guard let element,
+        attribute(element, kAXIdentifierAttribute) as? String == "textend-expansion-test"
+      else { return nil }
     }
-    var subrole: CFTypeRef?
-    AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
-    if subrole as? String == "AXSecureTextField" { return nil }
-    if focusedElement == nil || !CFEqual(focusedElement!, element) {
-      focusedElement = element
+    if let element,
+      attribute(element, kAXSubroleAttribute) as? String == "AXSecureTextField"
+    {
+      return nil
+    }
+
+    // Rich editors may expose no focused element or recreate it while typing.
+    // Anchor the typing run to the application/window instead. Mouse, navigation,
+    // and shortcut events still invalidate the run in ExpansionEngine.
+    let window = elementAttribute(app, kAXFocusedWindowAttribute)
+    let changedApplication = processID != application.processID
+    let changedWindow =
+      focusedWindow.map { old in window.map { !CFEqual(old, $0) } ?? false } ?? false
+    if changedApplication || changedWindow {
       token = UUID().uuidString
+      focusedWindow = window
+      reportedAXAvailability = nil
+    } else if let window {
+      focusedWindow = window
     }
-    return ExpansionTarget(processID: application.processIdentifier, focusID: token)
+    processID = application.processID
+    if reportedAXAvailability != (element != nil) {
+      reportedAXAvailability = element != nil
+      ExpansionDiagnostics.record(
+        element == nil ? "Using keyboard context without AX focus" : "AX focus available",
+        processID: application.processID)
+    }
+    return ExpansionTarget(processID: application.processID, focusID: token)
+  }
+
+  private func elementAttribute(_ element: AXUIElement, _ name: String) -> AXUIElement? {
+    guard let value = attribute(element, name), CFGetTypeID(value) == AXUIElementGetTypeID() else {
+      return nil
+    }
+    return (value as! AXUIElement)
   }
 
   /// Only inspect the adjacent character and selection, never the document value.
-  func startsAtBoundary() -> Bool {
-    guard let element = focusedElement, let range = selectionRange(), range.length == 0 else {
-      return false
-    }
+  func startsAtBoundary() -> Bool? {
+    guard let element = focusedElement, let range = selectionRange() else { return nil }
+    guard range.length == 0 else { return false }
     if range.location == 0 { return true }
     var previousRange = CFRange(location: range.location - 1, length: 1)
-    guard let parameter = AXValueCreate(.cfRange, &previousRange) else { return false }
+    guard let parameter = AXValueCreate(.cfRange, &previousRange) else { return nil }
     var previous: CFTypeRef?
     guard
       AXUIElementCopyParameterizedAttributeValue(
         element, kAXStringForRangeParameterizedAttribute as CFString, parameter, &previous)
         == .success,
       let text = previous as? String, let character = text.last
-    else { return false }
+    else { return nil }
     return !character.isLetter && !character.isNumber && character != "_"
   }
 
@@ -60,7 +116,9 @@ import Carbon
       let rawRange, CFGetTypeID(rawRange) == AXValueGetTypeID()
     else { return nil }
     var range = CFRange()
-    guard AXValueGetValue(rawRange as! AXValue, .cfRange, &range) else { return nil }
+    guard AXValueGetValue(rawRange as! AXValue, .cfRange, &range),
+      range.location >= 0, range.length >= 0, range.location != kCFNotFound
+    else { return nil }
     return range
   }
 

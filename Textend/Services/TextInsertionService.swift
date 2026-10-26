@@ -56,18 +56,12 @@ import CoreGraphics
     let usesPasteboard =
       text.count > 200 || text.contains("\n") || text.contains("\r") || text.contains("\t")
     var placement: (end: Int, destination: Int, arrows: [CGEvent]?)?
+    var relativeArrows: [CGEvent]?
     if let offset = cursorUTF16Offset {
       guard let index = ResolvedExpansion(text: text, cursorUTF16Offset: offset).cursorIndex else {
         throw TemplateError.invalid("The cursor marker must be between complete characters.")
       }
       if index != text.endIndex {
-        guard let range = focus.selectionRange(), range.length == 0,
-          range.location >= keyword.utf16.count
-        else {
-          throw TemplateError.invalid(
-            "Textend couldn’t read the caret position. Your keyword was left unchanged.")
-        }
-        let start = range.location - keyword.utf16.count
         // AX can position Unicode and multiline text directly. Prepare a fallback
         // for editors that expose a selection but do not let accessibility set it.
         // Never flood a host with thousands of navigation events for a large paste.
@@ -77,7 +71,33 @@ import CoreGraphics
           arrows = []
           for _ in text[index...] { arrows! += try keyEvents(123) }
         }
-        placement = (start + text.utf16.count, start + offset, arrows)
+        let range = focus.selectionRange()
+        if let range, range.length != 0 {
+          throw TemplateError.invalid("Expansion cancelled because the selection changed.")
+        }
+        // A numeric range does not imply that a web editor supports reading text
+        // or setting its caret. Use AX positioning only with readable context.
+        let readableContext = range.flatMap { range -> String? in
+          guard range.location >= keyword.utf16.count else { return nil }
+          return focus.text(
+            in: CFRange(
+              location: range.location - keyword.utf16.count, length: keyword.utf16.count))
+        }
+        if let range, readableContext == keyword || arrows == nil {
+          guard range.location >= keyword.utf16.count else {
+            throw TemplateError.invalid(
+              "Expansion cancelled because the caret position changed.")
+          }
+          let start = range.location - keyword.utf16.count
+          placement = (start + text.utf16.count, start + offset, arrows)
+        } else {
+          guard let arrows else {
+            throw TemplateError.invalid(
+              "This app cannot position the cursor across more than 256 characters. Your keyword was left unchanged."
+            )
+          }
+          relativeArrows = arrows
+        }
       }
     }
     var events: [CGEvent] = []
@@ -142,10 +162,36 @@ import CoreGraphics
     restoreWork = work
     schedule(usesPasteboard ? 0.3 : 0.04, work)
     if let placement {
+      ExpansionDiagnostics.record("Cursor uses readable AX context", processID: target.processID)
       scheduleCursor(
         target: target, end: placement.end, destination: placement.destination,
         text: text, arrows: placement.arrows, generation: cursorGeneration, attempt: 0)
+    } else if let relativeArrows {
+      ExpansionDiagnostics.record("Cursor uses relative keys", processID: target.processID)
+      scheduleRelativeCursor(
+        target: target, arrows: relativeArrows, generation: cursorGeneration,
+        delay: usesPasteboard ? 0.15 : 0.04)
     }
+  }
+
+  /// Hosts without numeric AX ranges can still navigate relative to the inserted text.
+  /// Give the host time to consume the insertion; real input invalidates this callback.
+  private func scheduleRelativeCursor(
+    target: ExpansionTarget, arrows: [CGEvent], generation: Int, delay: TimeInterval
+  ) {
+    let work = DispatchWorkItem { [weak self] in
+      guard let self, self.cursorGeneration == generation else { return }
+      defer { self.cancelCursorPlacement() }
+      guard self.focus.currentTarget() == target, !self.secureInput(),
+        self.focus.selectionRange().map({ $0.length == 0 }) ?? true
+      else { return }
+      for event in arrows {
+        event.setIntegerValueField(.eventSourceUserData, value: Self.eventMarker)
+        self.postEvent(event)
+      }
+    }
+    cursorWork = work
+    schedule(delay, work)
   }
 
   func finish() {
@@ -178,17 +224,13 @@ import CoreGraphics
       // Equal-length replacements can leave the caret unchanged. Confirm the
       // inserted span too, rather than mistaking the original keyword for completion.
       let insertedRange = CFRange(location: end - text.utf16.count, length: text.utf16.count)
+      let insertedText = self.focus.text(in: insertedRange)
       if let range = self.focus.selectionRange(), range.length == 0, range.location == end,
-        self.focus.text(in: insertedRange) == text
+        insertedText == text
       {
-        if !self.focus.moveCaret(to: destination) {
-          guard let arrows else {
-            self.cancelCursorPlacement()
-            self.cursorFailure(
-              "Text was inserted, but this app doesn’t support this long caret move. Place the caret manually."
-            )
-            return
-          }
+        // Web editors can report a successful AX write without moving the caret.
+        // Prefer keyboard navigation for bounded moves, even with readable AX text.
+        if let arrows {
           guard self.focus.currentTarget() == target, !self.secureInput(),
             let range = self.focus.selectionRange(), range.length == 0, range.location == end
           else {
@@ -199,8 +241,21 @@ import CoreGraphics
             event.setIntegerValueField(.eventSourceUserData, value: Self.eventMarker)
             self.postEvent(event)
           }
+        } else if !self.focus.moveCaret(to: destination) {
+          self.cancelCursorPlacement()
+          self.cursorFailure(
+            "Text was inserted, but this app doesn’t support this long caret move. Place the caret manually."
+          )
+          return
         }
         self.cancelCursorPlacement()
+      } else if insertedText == nil, attempt >= 14, let arrows {
+        // Some editors expose the keyword but stop exposing text after the paste
+        // rebuilds their editing node. Do not strand the cursor on a partial API.
+        ExpansionDiagnostics.record(
+          "AX cursor read unavailable; using keys", processID: target.processID)
+        self.scheduleRelativeCursor(
+          target: target, arrows: arrows, generation: generation, delay: 0.01)
       } else if attempt < 29 {
         self.scheduleCursor(
           target: target, end: end, destination: destination,
