@@ -890,5 +890,6 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   fetch confirms the live feed matches the prepared feed byte-for-byte and
   advertises 0.2.2 (7). No installed-app replacement or actual Sparkle update was
   performed during publication.
-- The source commit and annotated `v0.2.2` tag are local; their GitHub push is
-  pending. The tag targets the exact source revision in the release manifest.
+- Dave explicitly approved the public source push. Pushed the source and release
+  records to `main` and the annotated `v0.2.2` tag to GitHub. Remote verification
+  confirms that the tag targets the exact source revision in the release manifest.

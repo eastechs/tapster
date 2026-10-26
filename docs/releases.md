@@ -136,7 +136,7 @@ Creating a source tag does not publish another binary or change the update feed.
 | `v0.1.1` | 3 | `495bab63158d82971f32a3694b8314951ce3af14` |
 | `v0.2.0` | 5 | `4de2845dff3bd80c9d1db3b08f74b7c64fd38022` |
 | `v0.2.1` | 6 | `eb841dd9ec5c776cc2bc4a5e7f92f0ee9a01b01c` |
-| `v0.2.2` (push pending) | 7 | `a391cc846fd66e93fc1bc0cb27eb1044db8c0084` |
+| `v0.2.2` | 7 | `a391cc846fd66e93fc1bc0cb27eb1044db8c0084` |
 
 ## Verification before the first public release
 
