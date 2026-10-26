@@ -868,3 +868,27 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   release tests, 5 provisioning tests, strict formatting, shell syntax, license
   consistency, whitespace checks, and the provisioned Debug build. The final
   pre-commit review-loop pass found no further issues in the cumulative diff.
+
+### 0.2.2 publication
+
+- Committed the compatibility fixes and release notes as
+  `a391cc846fd66e93fc1bc0cb27eb1044db8c0084`. Prepared universal 0.2.2 (7) from
+  that clean source revision with the existing bundle identity, production
+  CloudKit entitlements, and signed-update requirements.
+- Apple accepted notarization submission
+  `3fc142ae-82f6-4398-853c-9e95cd40ce08`. Nested code signatures, stapling,
+  Gatekeeper assessment, Sparkle signatures, archive/feed hashes, and embedded
+  release notes passed validation. Archive SHA-256:
+  `582ae0f72ed5d6ca856f33e164d6c54a057d94b30bb2f4fd9102ac0527f9895d`.
+- The first publication attempt stopped before upload because the cached AWS
+  CLI launcher retained the old tapster Python path. Preserved that ignored
+  environment as `.build/release-tools.before-rename-repair` and recreated it
+  through the existing pinned setup script. No application or release-script
+  source changed during this repair.
+- Published `macos/Textend-0.2.2-7.zip` to Spaces, verified the public CDN download
+  against its prepared SHA-256, then published the signed appcast. An independent
+  fetch confirms the live feed matches the prepared feed byte-for-byte and
+  advertises 0.2.2 (7). No installed-app replacement or actual Sparkle update was
+  performed during publication.
+- The source commit and annotated `v0.2.2` tag are local; their GitHub push is
+  pending. The tag targets the exact source revision in the release manifest.
