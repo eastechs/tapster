@@ -48,6 +48,7 @@ architecture; Release retains universal architecture settings.
 
 ## Acceptance checklist
 
+- [x] In the signed 0.3.0 preview, insert the test Composition into Notes with Quick Access/Return and exclude it from TextEdit Current App results (Dave verified 2026-10-28).
 - [ ] Inspect palette, recorder, collection picker and Composition blocks in Light/Dark and theme colors.
 - [ ] Verify separate Snippets/Compositions lists, counts, creation routing, source navigation, and restored sidebar selection.
 - [ ] Verify keyboard navigation, drag/reorder, VoiceOver labels, and native menu actions.
@@ -56,9 +57,13 @@ architecture; Release retains universal architecture settings.
 - [ ] Verify Return and selection replacement in TextEdit, Notes, Safari, Terminal, and an Electron editor.
 - [ ] Verify clipboard/file paths, multiline output, caret position, changed targets, secure input, excluded apps and permission loss.
 - [ ] Verify shortcut changes/clear/reset and relaunch; native conflict warning.
-- [ ] Initialize and inspect the additive V3 development CloudKit schema.
-- [ ] On two updated Macs, verify restrictions, Compositions, source edits/deletions, partial arrival, offline edits and draft conflicts.
-- [ ] Validate and promote the reviewed schema to production, then verify production-signed access before release.
+- [x] Initialize and inspect the additive V3 development CloudKit schema (Console diff reviewed from Dave's screenshot on 2026-10-28).
+- [x] On two updated Macs, verify restrictions, Compositions, source edits/deletions, offline edits and draft conflicts (2026-10-28).
+- [x] Verify recovery when a missing source arrives later (delete/restore across Macs); initial partial source/collection arrival is covered separately by automated tests.
+- [x] Validate and promote the reviewed schema to production (Dave confirmed deployment on 2026-10-28).
+- [x] Verify production-signed upload of Compositions and collection app restrictions (2026-10-28).
+- [x] Verify their download on the second updated Mac (Dave confirmed both records and the TextEdit restriction on 2026-10-28).
+- [x] Verify reverse edits from the second updated Mac (source, Composition block data, and collection restriction received on 2026-10-28).
 
 No installed-app replacement, release publication, commit, or push is included in
 implementation. Automated checks and builds do not establish native or CloudKit

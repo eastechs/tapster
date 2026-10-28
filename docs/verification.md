@@ -1164,3 +1164,102 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   pending source, tests, bundled dependency license, provisioning changes, and
   documentation. The existing feature checklist retains unverified native and
   V3 CloudKit release acceptance items. This commit does not publish a release.
+
+
+### 0.3.0 release candidate verification (2026-10-27 and 2026-10-28)
+
+#### Artifact and automated checks
+
+- Prepared universal 0.3.0 (9) from clean, pushed source
+  `98082485fd2d1183882a2b69af9f3502414ebdd2`, retaining the Developer ID identity,
+  Production CloudKit/APNs entitlements, and Sparkle key. Apple accepted
+  notarization submission `8ca231e5-e7fb-4ac0-a99c-7423ba5781a1`.
+- Nested/deep signatures, architecture and bundle checks, stapling, Gatekeeper,
+  and Sparkle signing/verification passed. The package includes Textend,
+  KeyboardShortcuts, and Sparkle license notices.
+- `dist/0.3.0-9/` contains the signed ZIP, appcast, and manifest. ZIP SHA-256:
+  `29af325f6dff63940cf354a7eeded6f69e37e70a5e9e1013d4a688036029a037`.
+  ZIP/feed hashes were rechecked against the manifest after the sync tests.
+  No app source changed during packaging or acceptance; the manifest revision
+  remains the authoritative release/tag target.
+- Before commit, `script/check.sh` passed 124 Swift tests, 16 release tests,
+  nine provisioning tests, formatting, shell/whitespace/license checks, and
+  the signed development build. Those unchanged tests were not rerun for
+  documentation-only updates. Actual CloudKit checks below supplement them.
+
+#### Schema review and production deployment
+
+- Ran the existing development schema initializer using its dedicated store.
+  Initialization completed and the app subsequently opened its normal library.
+  Dave chose CloudKit Console; no CLI management token was created or saved.
+- Reviewed Dave's pending-deployment screenshot against the release model. It
+  adds `CD_appBundleIDs` (bytes) and its asset companion to `CD_SavedCollection`,
+  with two indexes; it creates `CD_SavedComposition` with 25 fields and 33 indexes.
+  The fields cover blocks, identity, collection membership, name, keyword,
+  template, favorite/enabled state, dates, and Core Data metadata/asset storage.
+  No deletions, existing-field type changes, or snippet-type changes were shown.
+- The three role changes apply read/create/write permissions to the new type.
+  The release explicitly uses the private CloudKit database. Apple's public
+  database role permissions do not expose that private library; see
+  [Apple's CloudKit design guidance](https://developer.apple.com/icloud/cloudkit/designing/).
+- Dave confirmed "Changes Deployed." The agent reviewed the screenshot but did
+  not operate the Console in this session. Schema promotion preceded verification
+  of the new records using the production-signed app.
+
+#### Signed production and two-Mac evidence
+
+The MacBook Pro ran the exact signed export with `--sync-preview`, a separate
+`ProductionPreview` library, expansion initially paused, and Sparkle disabled.
+No competing Textend process was launched. That existing preview configuration
+already had sync enabled. Its store migrated to V3 with a pre-v3 SQLite backup,
+then downloaded six snippets and three collections from production.
+Dave ran the signed test build on the Studio and reported its UI results.
+
+| Scenario | Verified result |
+| --- | --- |
+| Initial upload/download | The preview imported one disposable collection, source, and Composition with empty keywords. At 04:12:02, CloudKit completed a three-object private production export, then found zero remaining objects. Dave confirmed the records and TextEdit restriction arrived on the Studio without importing the JSON there. |
+| Reverse source edit | `studio edit` arrived here; the receiver's release resolver used it in the Composition. Dave confirmed the Studio preview updated. |
+| Offline edit/reconnect | Dave reported reconnecting after offline edits. `studio offline` and the Notes-only restriction arrived here at 04:49:50. The core allowed Notes and rejected TextEdit. |
+| Reverse Composition edit | Literal Block 2 arrived as `edited on studio` at 04:53:28, retaining identity, source reference, and scope. |
+| Concurrent dirty draft | Dave confirmed an unsaved local name survived the Studio's block change. Saving retained both actual values: `Draft Composition Check` and `concurrent block`. Both were independently verified in the receiver's saved record. |
+| Remote source deletion | Dave confirmed a missing-source warning on the Studio. At 05:08:29, the source was absent here while the Composition remained. The release resolver rejected it and computed an empty scope. |
+| Missing dependency arrives later | Dave imported a source-only restore with the original logical ID on the MacBook Pro. He confirmed the Studio warning cleared and its preview updated without restarting. The receiver has exactly one test source, Composition, and collection; resolution yields `Restored source check` followed by a newline and `concurrent block`, restricted to Notes. The observed transfer preference advanced through 05:49:01. |
+
+Times above are America/Chicago on October 28. Transfer timestamps alone were
+not treated as proof of second-device delivery. Studio observations are Dave's
+reports; receiver data and resolution checks are agent-verified. Missing-dependency
+recovery was exercised through deletion and later restoration, not by forcing
+CloudKit to split an initial download. Automated tests separately cover partial
+source/collection arrival.
+
+A reusable read-only fixture helper selects only the three disposable IDs and
+opens SQLite read-only/query-only. Its snapshots were resolved with the release's
+existing core code. Syntax, expected values, scope eligibility, and missing-source
+rejection passed. This does not claim native UI or physical keyboard verification
+on the receiver. Fixture files and the detailed session log remain in the ignored
+`build/releases.noindex/0.3.0-9/` directory.
+
+#### Remaining acceptance and publication
+
+- Production CloudKit transfer, offline/reconnect, concurrent drafts, remote
+  deletion, and later dependency recovery passed the checks above. Dave also
+  confirmed actual Quick Access/Return insertion of the test Composition into
+  Notes and its absence from TextEdit's Current App results in the signed preview.
+  This is user-verified native behavior, separate from the core eligibility tests.
+- The broader visual/accessibility, selection-replacement, shortcut-reconfiguration,
+  and additional target-app checklist remains explicitly unverified where no
+  result is recorded. The Notes/TextEdit check does not establish universal app
+  compatibility. Dave retains UI verification.
+- The three disposable test records remain, with empty expansion keywords. The
+  installed app has not been replaced.
+- Nothing was uploaded to Spaces, no live appcast or tag was changed, and no
+  commit or push was performed. The last checked live feed remains 0.2.3 (8).
+  Publication and a real updater installation of 0.3.0 are separate steps.
+- Final artifact verification rechecked ZIP/feed manifest hashes, build 9's
+  CDN URL and archive length, the app's deep/strict signature and version, and
+  its stapled notarization ticket. All remained valid; files were not rebuilt.
+- Release-evidence review-loop passed after consolidating intermediate status
+  notes and clarifying schema-deployment/production-test order. Reviewed the
+  full pending documentation diff, release notes, fixture validation results,
+  artifact checks, and sibling release instructions. Whitespace checks passed;
+  remaining native coverage is explicitly recorded. No app source changed.

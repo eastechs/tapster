@@ -169,6 +169,8 @@ Update every synced Mac before enabling app restrictions. Older clients cannot
 respect new scopes and do not display Compositions. JSON V2 prevents older
 importers from silently dropping either feature.
 
-Do not promote the V3 CloudKit schema or publish this feature release until the
-two-Mac checks in `docs/quick-access-compositions.md` and a production-signed
-access check pass. Initializing the development schema is not production acceptance.
+Before publishing this feature release, complete the two-Mac checks in
+`docs/quick-access-compositions.md`, promote the reviewed V3 schema, and verify
+transfers of the new records and fields using the production-signed app.
+Production transfer checks require the schema to be deployed first. Schema
+initialization or deployment alone is not release acceptance.
