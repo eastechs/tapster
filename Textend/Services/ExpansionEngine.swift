@@ -246,10 +246,11 @@ import Observation
       cancel()
       return
     }
+    let code = event.getIntegerValueField(.keyboardEventKeycode)
     guard status == .active, !insertion.isBusy, !secureInput(),
       !event.flags.contains(.maskCommand), !event.flags.contains(.maskControl),
       !event.flags.contains(.maskAlternate),
-      event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
+      event.getIntegerValueField(.keyboardEventAutorepeat) == 0 || code == 51,
       let app = NSWorkspace.shared.frontmostApplication,
       !excludedBundleIDs.contains(app.bundleIdentifier ?? ""),
       let current = focus.currentTarget()
@@ -257,8 +258,13 @@ import Observation
       cancel()
       return
     }
-    let code = event.getIntegerValueField(.keyboardEventKeycode)
-    guard ![36, 48, 51, 53, 76, 115, 116, 117, 119, 121, 123, 124, 125, 126].contains(code) else {
+    if code == 51 {
+      timer?.invalidate()
+      timer = nil
+      tracking.backspace(target: current, selection: focus.selectionRange())
+      return
+    }
+    guard ![36, 48, 53, 76, 115, 116, 117, 119, 121, 123, 124, 125, 126].contains(code) else {
       cancel()
       return
     }

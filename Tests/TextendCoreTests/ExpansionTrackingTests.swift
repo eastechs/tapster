@@ -124,4 +124,61 @@ final class ExpansionTrackingTests: XCTestCase {
       tracking.readiness(selection: CFRange(location: 12, length: 2), matchingKeyword: true),
       .cancelled)
   }
+
+  func testTypoCorrectionWorksWithMissingOrDelayedAccessibility() throws {
+    for selection in [nil, CFRange(location: 10, length: 0)] {
+      var tracking = tracker()
+      for character in "hex" {
+        _ = tracking.input(
+          String(character), target: target, selection: selection,
+          startsAtBoundary: nil, now: 0)
+      }
+      tracking.backspace(target: target, selection: selection)
+      var match: TriggerMatch?
+      for character in "llo" {
+        match = tracking.input(
+          String(character), target: target, selection: selection,
+          startsAtBoundary: false, now: 0.1)
+      }
+      XCTAssertEqual(try XCTUnwrap(match).snippet.keyword, "hello")
+    }
+  }
+
+  func testBackspaceWithSelectionOrChangedFocusDiscardsCorrectionHistory() {
+    for change in ["selection", "focus", "reset"] {
+      var tracking = tracker()
+      for character in "hex" {
+        _ = tracking.input(
+          String(character), target: target, selection: nil, startsAtBoundary: nil, now: 0)
+      }
+      switch change {
+      case "selection":
+        tracking.backspace(target: target, selection: CFRange(location: 0, length: 3))
+      case "focus":
+        tracking.backspace(
+          target: ExpansionTarget(processID: 2, focusID: "other"), selection: nil)
+      default:
+        tracking.reset()
+        tracking.backspace(target: target, selection: nil)
+      }
+      for character in "llo" {
+        XCTAssertNil(
+          tracking.input(
+            String(character), target: target, selection: nil,
+            startsAtBoundary: nil, now: 0.1), change)
+      }
+    }
+  }
+
+  func testBackspaceInvalidatesPendingMatchEvenWhenItCannotTrackDeletion() throws {
+    for selection in [nil, CFRange(location: 0, length: 2)] {
+      var tracking = tracker()
+      _ = tracking.input("g", target: target, selection: nil, startsAtBoundary: nil, now: 0)
+      let match = try XCTUnwrap(
+        tracking.input("c", target: target, selection: nil, startsAtBoundary: nil, now: 0))
+      tracking.backspace(target: target, selection: selection)
+      XCTAssertNil(tracking.matcher.pending)
+      XCTAssertNil(tracking.matcher.take(match, now: 1))
+    }
+  }
 }

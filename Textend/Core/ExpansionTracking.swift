@@ -26,6 +26,14 @@ struct ExpansionTracking {
     return matcher.input(text, now: now)
   }
 
+  mutating func backspace(target: ExpansionTarget, selection: CFRange?) {
+    guard self.target == target, selection.map({ $0.length == 0 }) ?? true else {
+      reset()
+      return
+    }
+    matcher.backspace()
+  }
+
   func readiness(selection: CFRange?, matchingKeyword: Bool? = nil) -> Readiness {
     guard let selection else { return .ready }
     guard selection.length == 0 else { return .cancelled }

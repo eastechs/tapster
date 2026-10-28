@@ -13,6 +13,7 @@ struct TriggerMatcher {
   private var snippets: [SnippetRecord] = []
   private var buffer = ""
   private var atBoundary = true
+  private var history: [(buffer: String, atBoundary: Bool)] = []
   private var longestKeyword = 0
   var delay: TimeInterval = 0.25
 
@@ -29,7 +30,20 @@ struct TriggerMatcher {
     generation &+= 1
     buffer = ""
     pending = nil
+    history.removeAll(keepingCapacity: true)
     self.atBoundary = atBoundary
+  }
+
+  mutating func backspace() {
+    generation &+= 1
+    pending = nil
+    guard let previous = history.popLast() else {
+      // Deleting text we did not observe cannot establish a word boundary.
+      reset(atBoundary: false)
+      return
+    }
+    buffer = previous.buffer
+    atBoundary = previous.atBoundary
   }
 
   mutating func input(_ text: String, now: TimeInterval) -> TriggerMatch? {
@@ -40,6 +54,10 @@ struct TriggerMatcher {
       reset(atBoundary: false)
       return nil
     }
+    // Save matching state, not arbitrary typed text, so a correction can recover
+    // even after a typo stops matching. Keep only a keyword's length plus one edit.
+    history.append((buffer, atBoundary))
+    if history.count > longestKeyword + 1 { history.removeFirst() }
     if character.isWhitespace || character.isNewline {
       buffer = ""
       atBoundary = true
