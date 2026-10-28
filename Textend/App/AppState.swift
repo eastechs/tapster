@@ -55,7 +55,8 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   var sortOrder: SnippetSortOrder {
     didSet { preferences.set(sortOrder.rawValue, forKey: "snippetSortOrder") }
   }
-  let engine = ExpansionEngine()
+  let engine: ExpansionEngine
+  let expansionSetup: ExpansionSetup
   var restartApproved = false
   var openQuickAccess: (() -> Void)?
   var scope: LibrarySelection = .all
@@ -74,10 +75,14 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   init(
     store: LibraryStore, seedExamples: Bool = false, startEngine: Bool = true,
     startPaused: Bool = false,
-    preferences: UserDefaults = .standard
+    preferences: UserDefaults = .standard,
+    engine: ExpansionEngine? = nil
   ) {
     self.store = store
     self.preferences = preferences
+    let engine = engine ?? ExpansionEngine(preferences: preferences)
+    self.engine = engine
+    expansionSetup = ExpansionSetup(engine: engine, preferences: preferences)
     sortOrder =
       SnippetSortOrder(rawValue: preferences.string(forKey: "snippetSortOrder") ?? "") ?? .name
     if seedExamples && !UserDefaults.standard.bool(forKey: "hasCreatedLibrary") {

@@ -120,7 +120,7 @@ import SwiftUI
   var body: some Scene {
     Window(BuildIdentity.displayName, id: "library") {
       if let state = bootstrap.state {
-        ContentView(state: state).textendTheme().onAppear { delegate.state = state }
+        LibraryRootView(state: state).textendTheme().onAppear { delegate.state = state }
       } else {
         VStack(spacing: 16) {
           if bootstrap.loading {
@@ -135,7 +135,11 @@ import SwiftUI
       }
     }
     .defaultSize(width: 1320, height: 780)
-    .commands { TextendCommands(state: bootstrap.state, updater: bootstrap.updater) }
+    .commands {
+      TextendCommands(
+        state: bootstrap.state?.expansionSetup.isPresented == true ? nil : bootstrap.state,
+        updater: bootstrap.updater)
+    }
 
     Settings {
       if let state = bootstrap.state {
@@ -160,6 +164,18 @@ import SwiftUI
         Button("Quit \(BuildIdentity.displayName)") { NSApp.terminate(nil) }.keyboardShortcut("q")
       }
     }
+  }
+}
+
+private struct LibraryRootView: View {
+  var state: AppState
+
+  var body: some View {
+    @Bindable var setup = state.expansionSetup
+    ContentView(state: state)
+      .sheet(isPresented: $setup.isPresented) {
+        ExpansionSetupView(setup: setup).textendTheme()
+      }
   }
 }
 

@@ -57,7 +57,7 @@ private final class QuickAccessPanel: NSPanel {
       dismiss()
       return
     }
-    guard !isInserting else { return }
+    guard !isInserting, !state.expansionSetup.isPresented else { return }
     target = state.engine.captureInsertionTarget()
     bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     clipboard = TextInsertionService.clipboardText(from: .general)

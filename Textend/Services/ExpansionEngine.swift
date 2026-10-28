@@ -16,6 +16,8 @@ import Observation
   private(set) var lastMessage: String?
   private(set) var isEnabled: Bool
   private(set) var accessibilityGranted = false
+  private(set) var postingGranted = false
+  var hasRequiredPermissions: Bool { accessibilityGranted && postingGranted }
   var excludedBundleIDs: [String] {
     didSet {
       preferences.set(excludedBundleIDs, forKey: "excludedBundleIDs")
@@ -217,10 +219,11 @@ import Observation
   func refresh() {
     guard isStarted else { return }
     accessibilityGranted = accessibility()
+    postingGranted = postEventAccess()
     var newStatus: Status
     if !isEnabled || isSleeping || !isSessionActive {
       newStatus = .paused
-    } else if !accessibilityGranted || !postEventAccess() {
+    } else if !hasRequiredPermissions {
       newStatus = .permission
     } else if secureInput() {
       newStatus = .secure

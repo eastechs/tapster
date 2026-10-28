@@ -134,15 +134,15 @@ struct HelpTopic: Identifiable {
       summary: "Turn short keywords into the text you use every day.",
       sections: [
         Section(
+          title: "Set up expansion",
+          body:
+            "On first launch, Textend explains why it needs Accessibility permission. Choose Open Accessibility Settings, turn on Textend, then return and choose Enable Expansion. Permission status updates automatically. Set Up Later lets you manage and copy snippets without permission; reopen the guide in Settings → Permissions → Set Up Expansion."
+        ),
+        Section(
           title: "Create your first snippet",
           body:
             "Choose File → New Snippet (⌘N). Give it a name, enter a keyword such as :hello, and write your text in Template. Keep Expansion enabled, then save with ⌘S.",
           example: "Name: Greeting\nKeyword: :hello\nTemplate: Hello! Thanks for getting in touch."),
-        Section(
-          title: "Enable expansion",
-          body:
-            "Open Settings → General and enable text expansion. Allow Textend in System Settings → Privacy & Security → Accessibility when prompted. You can still manage and copy snippets without this permission."
-        ),
         Section(
           title: "Try it",
           body:

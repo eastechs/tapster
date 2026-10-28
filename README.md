@@ -52,7 +52,7 @@ Create a snippet with a name, template, and optional keyword. Insert Clipboard o
 
 Save before trying a keyword. Templates insert literal text; Textend never executes commands or sends Return to submit them. Copy Expanded Text resolves a draft using the current clipboard, while the preview uses the editable sample clipboard value.
 
-Enable expansion in Settings and allow Accessibility when macOS asks. Accessibility covers both keyboard monitoring and insertion for Textend's active event tap; a separate Input Monitoring grant is not needed. The menu bar can pause or resume expansion, and closing the library window keeps Textend running. Launch at login is optional.
+On first launch, Textend explains why it needs Accessibility permission and opens the corresponding system settings. Turn on Textend there, return to the setup guide, and choose Enable Expansion. Permission status updates automatically. Choose Set Up Later to manage and copy snippets without granting access; reopen the guide from Settings → Permissions → Set Up Expansion. Accessibility covers both keyboard monitoring and insertion for Textend's active event tap; a separate Input Monitoring grant is not needed. The menu bar can pause or resume expansion, and closing the library window keeps Textend running. Launch at login is optional.
 
 Enable the separate **Textend Dev** entry in Accessibility once when testing a
 development build. Keep the installed **Textend** entry enabled for production.

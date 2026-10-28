@@ -15,6 +15,7 @@ struct SettingsView: View {
   @State private var settingsError: String?
   @State private var showingRestartPrompt = false
   @FocusState private var delayFocused: Bool
+  @Environment(\.openWindow) private var openWindow
 
   var body: some View {
     TabView {
@@ -125,6 +126,11 @@ struct SettingsView: View {
             "Accessibility",
             value: state.engine.accessibilityGranted ? "Allowed" : "Required for expansion")
           Button("Open Accessibility…", action: state.engine.openAccessibilitySettings)
+          Button("Set Up Expansion…") {
+            state.expansionSetup.show()
+            openWindow(id: "library")
+            NSApp.activate(ignoringOtherApps: true)
+          }
           LabeledContent("Status", value: state.engine.status.rawValue)
           if let message = state.engine.lastMessage {
             Text(message).font(.caption).foregroundStyle(.secondary)
