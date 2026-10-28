@@ -929,3 +929,23 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   5 provisioning tests, strict formatting, shell syntax, license consistency,
   whitespace checks, and the provisioned Debug build. Review-loop rechecked the
   cumulative diff and release notes with no remaining findings.
+
+### 0.2.3 publication
+
+- Committed the recovery fix, tests, and release notes as
+  `d8c3fd530032f090fa4e1fa8f59969a3daa6b108`. Built universal 0.2.3 (8) from that
+  clean revision with the existing Developer ID identity, production CloudKit
+  entitlements, and Sparkle signing key.
+- Apple accepted notarization submission
+  `6f448d50-952b-47a5-9adf-3bf3d960f668`. Nested signatures, stapling, Gatekeeper
+  assessment, Sparkle signatures, and archive/feed hashes passed validation.
+  Archive SHA-256:
+  `898833394ce3bfc3c05e2e463896d5e09046f205069d5dc42c3e248502b7c10a`.
+- Published `macos/Textend-0.2.3-8.zip`, verified its public CDN download against
+  the prepared hash, and published the signed appcast. An independent fetch
+  confirms the live feed matches the prepared signed bytes and advertises
+  0.2.3 (8), with the expected cache-control header.
+- Pushed the release source to `main` and the annotated `v0.2.3` tag to GitHub.
+  Remote verification confirms the tag targets the manifest's source revision.
+  The installed app was left for Dave to update through Sparkle. Physical
+  sleep/wake typing and the installed-app update remain unverified.
