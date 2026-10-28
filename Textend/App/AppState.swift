@@ -3,8 +3,35 @@ import Observation
 import UniformTypeIdentifiers
 
 enum LibrarySelection: Hashable {
-  case all, favorites
+  case all, compositions, favorites
   case collection(UUID)
+
+  init(storedValue: String) {
+    switch storedValue {
+    case "all": self = .all
+    case "compositions": self = .compositions
+    case "favorites": self = .favorites
+    default: self = UUID(uuidString: storedValue).map(Self.collection) ?? .all
+    }
+  }
+
+  var storedValue: String {
+    switch self {
+    case .all: "all"
+    case .compositions: "compositions"
+    case .favorites: "favorites"
+    case .collection(let id): id.uuidString
+    }
+  }
+
+  func contains(_ item: SnippetRecord) -> Bool {
+    switch self {
+    case .all: !item.isComposition
+    case .compositions: item.isComposition
+    case .favorites: item.isFavorite
+    case .collection(let id): item.collectionID == id
+    }
+  }
 }
 
 enum SnippetSortOrder: String, CaseIterable, Identifiable {
@@ -30,6 +57,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   }
   let engine = ExpansionEngine()
   var restartApproved = false
+  var openQuickAccess: (() -> Void)?
   var scope: LibrarySelection = .all
   var selectedID: UUID?
   var draft: SnippetRecord?
@@ -45,6 +73,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
 
   init(
     store: LibraryStore, seedExamples: Bool = false, startEngine: Bool = true,
+    startPaused: Bool = false,
     preferences: UserDefaults = .standard
   ) {
     self.store = store
@@ -61,36 +90,32 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     {
       load(first)
     }
-    engine.updateSnippets(store.expansionSnippets)
+    engine.updateLibrary(store.library)
     store.onChange = { [weak self] in self?.libraryDidChange() }
-    if startEngine { engine.start() }
+    if startEngine { engine.start(initiallyPaused: startPaused) }
   }
 
   var isDirty: Bool { draft != baseline }
+  var isNewDraft: Bool { draft != nil && baseline == nil }
   var filteredSnippets: [SnippetRecord] {
-    store.snippets.filter { snippet in
-      let inScope: Bool
-      switch scope {
-      case .all: inScope = true
-      case .favorites: inScope = snippet.isFavorite
-      case .collection(let id): inScope = snippet.collectionID == id
-      }
-      let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-      return inScope
-        && (query.isEmpty
-          || [snippet.name, snippet.keyword, snippet.template].contains {
-            $0.localizedCaseInsensitiveContains(query)
-          })
-    }.sorted(by: sortOrder.precedes)
+    let matches = Set(store.library.search(search, bundleID: nil, allApps: true).map(\.id))
+    return store.items.filter { scope.contains($0) && matches.contains($0.id) }
+      .sorted(by: sortOrder.precedes)
+  }
+
+  var unsavedSnippets: [SnippetRecord] {
+    guard let draft, scope.contains(draft), !store.items.contains(where: { $0.id == draft.id })
+    else { return [] }
+    return [draft]
   }
 
   var remoteDraftDeleted: Bool {
-    baseline != nil && !store.snippets.contains { $0.id == baseline?.id }
+    baseline != nil && !store.items.contains { $0.id == baseline?.id }
   }
 
   var remoteDraftChanged: Bool {
     guard isDirty, let baseline,
-      let saved = store.snippets.first(where: { $0.id == baseline.id })
+      let saved = store.items.first(where: { $0.id == baseline.id })
     else { return false }
     return saved != baseline
   }
@@ -98,18 +123,19 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   var copyError: String? {
     guard let draft else { return nil }
     do {
-      try LibraryValidation.validate(draft, among: [draft])
+      try store.libraryForDraft(draft).validateContent(draft)
       return nil
     } catch { return error.localizedDescription }
   }
 
   private func libraryDidChange() {
-    engine.updateSnippets(store.expansionSnippets)
+    engine.updateLibrary(store.library)
     if case .collection(let id) = scope, !store.collections.contains(where: { $0.id == id }) {
-      scope = .all
+      scope = draft?.isComposition == true ? .compositions : .all
+      search = ""
     }
     if !isDirty, let selectedID {
-      if let saved = store.snippets.first(where: { $0.id == selectedID }) {
+      if let saved = store.items.first(where: { $0.id == selectedID }) {
         load(saved)
       } else {
         draft = nil
@@ -123,7 +149,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     guard let draft else { return nil }
     do {
       let proposed: SnippetRecord
-      if let baseline, let remote = store.snippets.first(where: { $0.id == draft.id }) {
+      if let baseline, let remote = store.items.first(where: { $0.id == draft.id }) {
         proposed = draft.mergingChanges(from: baseline, into: remote)
       } else {
         proposed = draft
@@ -137,7 +163,8 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     guard id != selectedID else { return }
     transition { [weak self] in
       guard let self else { return }
-      if let snippet = self.store.snippets.first(where: { $0.id == id }) {
+      if let snippet = self.store.items.first(where: { $0.id == id }) {
+        self.reveal(snippet)
         self.load(snippet)
       } else {
         self.draft = nil
@@ -159,11 +186,19 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     }
   }
 
-  func newSnippet() {
+  func newComposition() { newSnippet(composition: true) }
+
+  func newSnippet() { newSnippet(composition: false) }
+
+  private func newSnippet(composition: Bool) {
     transition { [weak self] in
       guard let self else { return }
-      var snippet = SnippetRecord(name: "Untitled Snippet")
+      var snippet = SnippetRecord(
+        name: composition ? "Untitled Composition" : "Untitled Snippet",
+        blocks: composition ? [] : nil)
       if case .collection(let id) = self.scope { snippet.collectionID = id }
+      self.scope = composition ? .compositions : .all
+      self.search = ""
       self.draft = snippet
       self.baseline = nil
       self.selectedID = snippet.id
@@ -179,14 +214,14 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
         )
       }
       let record: SnippetRecord
-      if let baseline, let remote = store.snippets.first(where: { $0.id == draft.id }) {
+      if let baseline, let remote = store.items.first(where: { $0.id == draft.id }) {
         record = draft.mergingChanges(from: baseline, into: remote)
       } else {
         record = draft
       }
       try store.save(record)
-      if let saved = store.snippets.first(where: { $0.id == draft.id }) { load(saved) }
-      engine.updateSnippets(store.expansionSnippets)
+      if let saved = store.items.first(where: { $0.id == draft.id }) { load(saved) }
+      engine.updateLibrary(store.library)
       return true
     } catch {
       errorMessage = error.localizedDescription
@@ -215,11 +250,17 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
       copy.keyword = ""
       copy.createdAt = Date()
       copy.updatedAt = Date()
+      copy.blocks = copy.blocks?.map { block in
+        var value = block
+        value.id = UUID()
+        return value
+      }
       copy.placeholders = copy.placeholders.map {
         var p = $0
         p.id = UUID()
         return p
       }
+      self?.reveal(copy)
       self?.draft = copy
       self?.baseline = nil
       self?.selectedID = copy.id
@@ -230,6 +271,19 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     transition { [weak self] in
       self?.perform {
         guard let self else { return }
+        let dependents = self.store.compositions.filter {
+          $0.blocks.contains { $0.snippetID == snippet.id }
+        }
+        if !dependents.isEmpty {
+          let alert = NSAlert()
+          alert.messageText = "Delete a source snippet?"
+          alert.informativeText =
+            "Used by " + dependents.map { $0.metadata.name }.joined(separator: ", ")
+            + ". Those Compositions will stop expanding until repaired."
+          alert.addButton(withTitle: "Cancel")
+          alert.addButton(withTitle: "Delete")
+          guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
         try self.store.deleteSnippet(snippet.id)
         if self.selectedID == snippet.id {
           self.draft = nil
@@ -244,7 +298,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     transition { [weak self] in
       self?.perform {
         guard let self else { return }
-        guard var record = self.store.snippets.first(where: { $0.id == snippet.id }) else { return }
+        guard var record = self.store.items.first(where: { $0.id == snippet.id }) else { return }
         mutate(&record)
         try self.store.save(record)
         if self.selectedID == record.id { self.load(record) }
@@ -257,22 +311,44 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     showingCollectionSheet = true
   }
 
-  func saveCollection(name: String) {
-    perform {
-      var record =
-        collectionToEdit ?? CollectionRecord(name: name, sortOrder: store.collections.count)
+  func saveCollection(name: String, appBundleIDs: [String]? = nil) throws {
+    var record =
+      collectionToEdit ?? CollectionRecord(name: name, sortOrder: store.collections.count)
+    if let baseline = collectionToEdit {
+      guard let remote = store.collections.first(where: { $0.id == baseline.id }) else {
+        throw TemplateError.invalid(
+          "This collection was deleted elsewhere. Cancel and create a new collection.")
+      }
+      record = remote
+      if name != baseline.name { record.name = name }
+      if appBundleIDs != baseline.appBundleIDs { record.appBundleIDs = appBundleIDs }
+    } else {
       record.name = name
-      try store.saveCollection(record)
+      record.appBundleIDs = appBundleIDs
     }
+    try store.saveCollection(record)
   }
 
   func deleteCollection(_ id: UUID) {
     transition { [weak self] in
       self?.perform {
         guard let self else { return }
+        if let collection = self.store.collections.first(where: { $0.id == id }),
+          collection.appBundleIDs != nil
+        {
+          let alert = NSAlert()
+          alert.messageText = "Delete restricted collection?"
+          alert.informativeText =
+            "Its retained items become available in all apps. New keyword conflicts will pause automatic expansion."
+          alert.addButton(withTitle: "Cancel")
+          alert.addButton(withTitle: "Delete")
+          guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
         try self.store.deleteCollection(id)
-        self.scope = .all
-        if let selected = self.store.snippets.first(where: { $0.id == self.selectedID }) {
+        if self.scope == .collection(id) {
+          self.scope = self.draft?.isComposition == true ? .compositions : .all
+        }
+        if let selected = self.store.items.first(where: { $0.id == self.selectedID }) {
           self.load(selected)
         }
       }
@@ -301,7 +377,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   }
 
   func discardDraft() {
-    if let id = baseline?.id, let saved = store.snippets.first(where: { $0.id == id }) {
+    if let id = baseline?.id, let saved = store.items.first(where: { $0.id == id }) {
       load(saved)
     } else {
       draft = nil
@@ -314,7 +390,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     guard remoteDraftDeleted, var copy = draft else { return }
     copy.id = UUID()
     copy.createdAt = Date()
-    if store.snippets.contains(where: { !$0.keyword.isEmpty && $0.keyword == copy.keyword }) {
+    if store.items.contains(where: { !$0.keyword.isEmpty && $0.keyword == copy.keyword }) {
       copy.keyword = ""
     }
     if !store.collections.contains(where: { $0.id == copy.collectionID }) {
@@ -333,8 +409,9 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   func copyExpandedText() {
     guard let draft else { return }
     do {
-      let value = try TemplateResolver.resolve(
-        draft, clipboard: TextInsertionService.clipboardText(from: .general))
+      let value = try store.libraryForDraft(draft).resolve(
+        draft, clipboard: TextInsertionService.clipboardText(from: .general)
+      ).text
       NSPasteboard.general.clearContents()
       NSPasteboard.general.setString(value, forType: .string)
     } catch { errorMessage = error.localizedDescription }
@@ -343,7 +420,7 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
   func perform(_ action: () throws -> Void) {
     do {
       try action()
-      engine.updateSnippets(store.expansionSnippets)
+      engine.updateLibrary(store.library)
     } catch { errorMessage = error.localizedDescription }
   }
 
@@ -369,6 +446,11 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     } else {
       action()
     }
+  }
+
+  private func reveal(_ item: SnippetRecord) {
+    if !scope.contains(item) { scope = item.isComposition ? .compositions : .all }
+    if !filteredSnippets.contains(where: { $0.id == item.id }) { search = "" }
   }
 
   private func load(_ snippet: SnippetRecord) {

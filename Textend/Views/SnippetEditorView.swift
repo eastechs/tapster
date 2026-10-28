@@ -6,6 +6,8 @@ struct SnippetEditorView: View {
   @State private var insertion: PlaceholderInsertion?
   @State private var placeholderSource: PlaceholderSource = .clipboard
   @State private var showingPlaceholder = false
+  @State private var didAutofocusName = false
+  @FocusState private var nameFocused: Bool
 
   private var names: [String] { (try? TemplateParser.parse(draft.template).names) ?? [] }
   private var hasCursor: Bool { (try? TemplateParser.parse(draft.template).hasCursor) == true }
@@ -13,6 +15,14 @@ struct SnippetEditorView: View {
   var body: some View {
     editor
       .controlSize(.regular)
+      .task {
+        guard state.isNewDraft, !didAutofocusName else { return }
+        // Let the new editor attach after the menu or unsaved-changes sheet closes.
+        await Task.yield()
+        guard !Task.isCancelled, state.isNewDraft, state.draft?.id == draft.id else { return }
+        didAutofocusName = true
+        nameFocused = true
+      }
       .sheet(isPresented: $showingPlaceholder) {
         PlaceholderSheet(source: placeholderSource, existingNames: names) { name, source in
           draft.placeholders.removeAll { $0.name == name }
@@ -31,7 +41,7 @@ struct SnippetEditorView: View {
               "Deleted on another Mac. Your unsaved draft is still here.",
               systemImage: "icloud.slash")
             HStack {
-              Button("Save as New Snippet", action: state.saveDeletedDraftAsNew)
+              Button("Save as New", action: state.saveDeletedDraftAsNew)
               Button("Discard Draft", action: state.discardDraft)
             }
           }
@@ -42,7 +52,7 @@ struct SnippetEditorView: View {
           )
           .font(.callout).foregroundStyle(.secondary)
         }
-        if let saved = state.store.snippets.first(where: { $0.id == draft.id }),
+        if let saved = state.store.items.first(where: { $0.id == draft.id }),
           let issue = state.store.expansionIssue(for: saved)
         {
           Label(issue, systemImage: "exclamationmark.triangle")
@@ -51,7 +61,9 @@ struct SnippetEditorView: View {
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 12) {
           GridRow {
             Text("Name").foregroundStyle(.secondary).gridColumnAlignment(.trailing)
-            TextField("Snippet name", text: $draft.name).accessibilityLabel("Snippet name")
+            TextField("Snippet name", text: $draft.name)
+              .textFieldStyle(SnippetInputStyle(focus: $nameFocused))
+              .accessibilityLabel("Snippet name")
           }
           GridRow {
             Text("Keyword").foregroundStyle(.secondary)
@@ -88,33 +100,41 @@ struct SnippetEditorView: View {
         }
         .textFieldStyle(SnippetInputStyle())
 
-        VStack(alignment: .leading, spacing: 10) {
-          Text("Template").font(.headline)
-          TemplateTextView(text: $draft.template, insertion: insertion)
-            .frame(minHeight: 240)
-            .snippetInputSurface()
-          VStack(alignment: .leading, spacing: 8) {
-            placeholderMenu
-            braceHint
-            if hasCursor && draft.placeholders.contains(where: { $0.name == "cursor" }) {
-              Button("Remove existing cursor mapping") {
-                draft.placeholders.removeAll { $0.name == "cursor" }
+        Text(
+          "Available in: "
+            + ApplicationLabel.availability(draft, in: state.store.libraryForDraft(draft))
+        )
+        .font(.caption).foregroundStyle(.secondary)
+        if draft.isComposition {
+          CompositionBlocksView(draft: $draft, state: state)
+        } else {
+          VStack(alignment: .leading, spacing: 10) {
+            Text("Template").font(.headline)
+            TemplateTextView(text: $draft.template, insertion: insertion)
+              .frame(minHeight: 240)
+              .snippetInputSurface()
+            VStack(alignment: .leading, spacing: 8) {
+              placeholderMenu
+              braceHint
+              if hasCursor && draft.placeholders.contains(where: { $0.name == "cursor" }) {
+                Button("Remove existing cursor mapping") {
+                  draft.placeholders.removeAll { $0.name == "cursor" }
+                }
+                .help(
+                  "Use {cursor} for caret placement instead of its previous clipboard or date source."
+                )
               }
-              .help(
-                "Use {cursor} for caret placement instead of its previous clipboard or date source."
-              )
+            }
+          }
+
+          if !names.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+              Divider().padding(.bottom, 4)
+              Text("Placeholders").font(.headline)
+              ForEach(names, id: \.self) { name in PlaceholderRow(name: name, draft: $draft) }
             }
           }
         }
-
-        if !names.isEmpty {
-          VStack(alignment: .leading, spacing: 12) {
-            Divider().padding(.bottom, 4)
-            Text("Placeholders").font(.headline)
-            ForEach(names, id: \.self) { name in PlaceholderRow(name: name, draft: $draft) }
-          }
-        }
-
         if let error = state.draftError {
           Label(error, systemImage: "exclamationmark.circle")
             .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
@@ -155,7 +175,7 @@ struct SnippetEditorView: View {
 
   private var keywordHelp: String {
     if !draft.keyword.isEmpty
-      && state.store.snippets.contains(where: {
+      && state.store.items.contains(where: {
         $0.id != draft.id && $0.isEnabled && !$0.keyword.isEmpty
           && ($0.keyword.hasPrefix(draft.keyword) || draft.keyword.hasPrefix($0.keyword))
       })

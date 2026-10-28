@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
@@ -50,6 +51,19 @@ struct SettingsView: View {
           .font(.caption).foregroundStyle(.secondary)
         }
         Section {
+          KeyboardShortcuts.Recorder("Open Quick Access", name: .quickAccess)
+          HStack {
+            Button("Clear") { KeyboardShortcuts.setShortcut(nil, for: .quickAccess) }
+            Button("Restore Default") { KeyboardShortcuts.reset(.quickAccess) }
+          }
+          Text(
+            "Default: ⇧⌘Space. Your shortcut stays on this Mac. Some shortcuts used by other apps cannot be detected."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+        } header: {
+          Text("Quick Access")
+        }
+        Section {
           ExpansionTestField().frame(height: 72)
         } header: {
           Text("Try Expansion")
@@ -58,13 +72,14 @@ struct SettingsView: View {
             .font(.caption).foregroundStyle(.secondary)
         }
         Section {
-          Toggle("Show Textend in the Dock", isOn: $showDockIcon)
+          Toggle("Show \(BuildIdentity.displayName) in the Dock", isOn: $showDockIcon)
           if DockVisibility.shared.requiresRestart(showInDock: showDockIcon) {
             Label("Quit and reopen Textend to apply this change.", systemImage: "arrow.clockwise")
               .font(.caption).foregroundStyle(.secondary)
           }
           Toggle(
-            "Launch Textend at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
+            "Launch \(BuildIdentity.displayName) at login",
+            isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
         } header: {
           Text("App Behavior")
         } footer: {
@@ -122,7 +137,7 @@ struct SettingsView: View {
               Button {
                 state.engine.excludedBundleIDs.removeAll { $0 == id }
               } label: {
-                Image(systemName: "minus.circle")
+                Image(systemName: "minus.circle").controlHitArea()
               }
               .buttonStyle(.borderless).accessibilityLabel("Remove \(id) from excluded apps")
             }

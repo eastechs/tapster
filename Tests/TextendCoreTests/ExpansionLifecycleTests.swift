@@ -4,6 +4,54 @@ import XCTest
 @testable import TextendCore
 
 final class ExpansionLifecycleTests: XCTestCase {
+  @MainActor func testPreviewStartsPausedAndCanResumeWithoutChangingSavedPreferenceOnLaunch() throws
+  {
+    let h = ExpansionLifecycleHarness()
+    defer { h.stop() }
+    XCTAssertTrue(h.engine.isEnabled)
+    h.engine.start(initiallyPaused: true)
+    h.engine.start()
+    h.post(NSWorkspace.didWakeNotification)
+    h.engine.refresh()
+
+    XCTAssertFalse(h.engine.isEnabled)
+    XCTAssertEqual(h.engine.status, .paused)
+    XCTAssertTrue(h.savedEnabled)
+    XCTAssertTrue(h.taps.isEmpty)
+
+    h.engine.setEnabled(true)
+    h.engine.start(initiallyPaused: true)
+    XCTAssertTrue(h.engine.isEnabled)
+    XCTAssertEqual(h.engine.status, .active)
+    XCTAssertEqual(h.taps.count, 1)
+
+    let tap = try XCTUnwrap(h.taps.last)
+    h.engine.setEnabled(false)
+    XCTAssertFalse(h.engine.isEnabled)
+    XCTAssertFalse(h.savedEnabled)
+    XCTAssertEqual(h.engine.status, .paused)
+    XCTAssertEqual(tap.invalidations, 1)
+  }
+
+  @MainActor func testResumingPreviewReportsMissingPermissionThenRecovers() {
+    let h = ExpansionLifecycleHarness()
+    defer { h.stop() }
+    h.accessibility = false
+    h.engine.start(initiallyPaused: true)
+    XCTAssertFalse(h.engine.isEnabled)
+    XCTAssertEqual(h.engine.status, .paused)
+
+    h.engine.setEnabled(true)
+    XCTAssertTrue(h.engine.isEnabled)
+    XCTAssertEqual(h.engine.status, .permission)
+    XCTAssertTrue(h.taps.isEmpty)
+
+    h.accessibility = true
+    h.engine.refresh()
+    XCTAssertEqual(h.engine.status, .active)
+    XCTAssertEqual(h.taps.count, 1)
+  }
+
   @MainActor func testWakeReplacesAnApparentlyHealthyListener() throws {
     let h = ExpansionLifecycleHarness()
     defer { h.stop() }
@@ -235,6 +283,7 @@ final class ExpansionLifecycleTests: XCTestCase {
   let center = NotificationCenter()
   private let suite = "textend-expansion-tests." + UUID().uuidString
   private lazy var preferences = UserDefaults(suiteName: suite)!
+  var savedEnabled: Bool { preferences.bool(forKey: "expansionEnabled") }
   var accessibility = true
   var posting = true
   var secure = false

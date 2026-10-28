@@ -36,6 +36,7 @@ import SwiftUI
 @MainActor @Observable final class AppBootstrap {
   var state: AppState?
   var sync: SyncCoordinator?
+  var quickAccess: QuickAccessController?
   let updater = UpdaterService()
   var error: String?
   var loading = false
@@ -48,7 +49,7 @@ import SwiftUI
     do {
       let directory = try SyncConfiguration.directory()
       let defaults = UserDefaults(
-        suiteName: "chat.eastechs.tapster.sync." + directory.lastPathComponent)!
+        suiteName: BuildIdentity.bundleID + ".sync." + directory.lastPathComponent)!
       let coordinator = try SyncCoordinator(
         directory: directory,
         provider: CloudAccountProvider(defaults: defaults), defaults: defaults)
@@ -60,7 +61,10 @@ import SwiftUI
       #endif
       let library = try await coordinator.openLibrary()
       let preview = ProcessInfo.processInfo.arguments.contains("--sync-preview")
-      state = AppState(store: library, startEngine: !preview)
+      let appState = AppState(store: library, startPaused: preview)
+      state = appState
+      quickAccess = QuickAccessController(state: appState)
+      appState.openQuickAccess = { [weak self] in self?.quickAccess?.toggle() }
       sync = coordinator
       coordinator.onRestart = { [weak self] next in self?.restart(using: next) }
       updater.state = state
@@ -105,7 +109,7 @@ import SwiftUI
   @State private var bootstrap = AppBootstrap()
 
   var body: some Scene {
-    Window("Textend", id: "library") {
+    Window(BuildIdentity.displayName, id: "library") {
       if let state = bootstrap.state {
         ContentView(state: state).textendTheme().onAppear { delegate.state = state }
       } else {
@@ -130,18 +134,18 @@ import SwiftUI
       }
     }
 
-    Window("Textend Help", id: "help") {
+    Window("\(BuildIdentity.displayName) Help", id: "help") {
       HelpView().textendTheme()
     }
     .defaultSize(width: 860, height: 600)
 
-    MenuBarExtra("Textend", image: "MenuBarIcon") {
+    MenuBarExtra(BuildIdentity.displayName, image: "MenuBarIcon") {
       if let state = bootstrap.state {
         MenuBarContent(state: state, updater: bootstrap.updater).textendTheme()
       } else {
         Text("Library unavailable")
         Divider()
-        Button("Quit Textend") { NSApp.terminate(nil) }.keyboardShortcut("q")
+        Button("Quit \(BuildIdentity.displayName)") { NSApp.terminate(nil) }.keyboardShortcut("q")
       }
     }
   }
@@ -154,7 +158,8 @@ private struct MenuBarContent: View {
   var body: some View {
     Text(state.engine.status.rawValue)
     Divider()
-    Button("Open Textend") {
+    Button("Quick Access") { state.openQuickAccess?() }
+    Button("Open \(BuildIdentity.displayName)") {
       openWindow(id: "library")
       NSApp.activate(ignoringOtherApps: true)
     }
@@ -164,7 +169,7 @@ private struct MenuBarContent: View {
     SettingsLink { Text("Settings…") }
     CheckForUpdatesButton(updater: updater)
     Divider()
-    Button("Quit Textend", action: state.requestQuit).keyboardShortcut("q")
+    Button("Quit \(BuildIdentity.displayName)", action: state.requestQuit).keyboardShortcut("q")
   }
 }
 
@@ -185,12 +190,13 @@ private struct TextendCommands: Commands {
     }
     CommandGroup(replacing: .newItem) {
       Button("New Snippet") { state?.newSnippet() }.keyboardShortcut("n").disabled(state == nil)
+      Button("New Composition") { state?.newComposition() }.disabled(state == nil)
       Button("New Collection…") { state?.editCollection(nil) }.keyboardShortcut(
         "n", modifiers: [.command, .shift]
       ).disabled(state == nil)
     }
     CommandGroup(replacing: .saveItem) {
-      Button("Save Snippet") { state?.save() }.keyboardShortcut("s").disabled(
+      Button("Save") { state?.save() }.keyboardShortcut("s").disabled(
         state?.isDirty != true || state?.draftError != nil)
       Divider()
       Button("Import Backup…") { state?.importBackup() }.disabled(state == nil)
@@ -198,7 +204,7 @@ private struct TextendCommands: Commands {
       Divider()
       Button("Add Example Snippets") { state?.addExamples() }
         .disabled(
-          state == nil || state?.store.snippets.isEmpty != true
+          state == nil || state?.store.items.isEmpty != true
             || state?.store.collections.isEmpty != true)
     }
     CommandGroup(after: .textEditing) {

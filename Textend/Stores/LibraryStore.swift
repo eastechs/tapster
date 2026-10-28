@@ -4,6 +4,16 @@ import SwiftData
 
 @MainActor @Observable final class LibraryStore {
   private(set) var snippets: [SnippetRecord] = []
+  private(set) var compositions: [CompositionRecord] = []
+  var items: [SnippetRecord] {
+    let snippetIDs = Set(snippets.map(\.id))
+    return snippets + compositions.filter { !snippetIDs.contains($0.id) }.map(\.item)
+  }
+  var library: ExpansionLibrary {
+    ExpansionLibrary(
+      items: isSuspended ? [] : items, collections: collections, errors: recordErrors)
+  }
+  private var rawBlockData: [UUID: Data] = [:]
   private(set) var collections: [CollectionRecord] = []
   private(set) var revision = 0
   private var container: ModelContainer?
@@ -14,7 +24,7 @@ import SwiftData
   private(set) var recordErrors: [UUID: String] = [:]
 
   init(inMemory: Bool = false, url: URL? = nil, cloudContainer: String? = nil) throws {
-    let schema = Schema(versionedSchema: TextendSchemaV2.self)
+    let schema = Schema(versionedSchema: TextendSchemaV3.self)
     let configuration: ModelConfiguration
     var legacyArchive: LibraryArchive?
     if let url {
@@ -28,7 +38,7 @@ import SwiftData
       let support = try FileManager.default.url(
         for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
       )
-      .appendingPathComponent("chat.eastechs.tapster", isDirectory: true)
+      .appendingPathComponent(BuildIdentity.bundleID, isDirectory: true)
       try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
       try StoreBackup.beforeMigration(at: support.appendingPathComponent("Library.store"))
       configuration = ModelConfiguration(
@@ -62,43 +72,61 @@ import SwiftData
   }
 
   var keywordConflicts: [String: [SnippetRecord]] {
-    Dictionary(grouping: snippets.filter { !$0.keyword.isEmpty }, by: \.keyword)
-      .filter { $0.value.count > 1 }
+    Dictionary(grouping: items.filter { !library.conflicts(for: $0).isEmpty }, by: \.keyword)
   }
 
-  var expansionSnippets: [SnippetRecord] {
-    guard !isSuspended else { return [] }
-    let conflicts = keywordConflicts
-    return snippets.filter {
-      $0.isEnabled && conflicts[$0.keyword] == nil && recordErrors[$0.id] == nil
-        && (try? LibraryValidation.validate($0, among: [$0])) != nil
-    }
+  var expansionSnippets: [SnippetRecord] { library.automaticItems(in: nil) }
+
+  func expansionIssue(for snippet: SnippetRecord) -> String? { library.issue(for: snippet) }
+
+  var archive: LibraryArchive {
+    LibraryArchive(collections: collections, snippets: snippets, compositions: compositions)
   }
 
-  func expansionIssue(for snippet: SnippetRecord) -> String? {
-    if let error = recordErrors[snippet.id] { return error }
-    if let conflicts = keywordConflicts[snippet.keyword] {
-      return "Expansion paused: ‘\(snippet.keyword)’ is also used by "
-        + conflicts.filter { $0.id != snippet.id }.map(\.name).joined(separator: ", ")
-        + ". Rename or clear a keyword to resolve this conflict."
-    }
-    do {
-      try LibraryValidation.validate(snippet, among: [snippet])
-      return nil
-    } catch { return error.localizedDescription }
+  func libraryForDraft(_ draft: SnippetRecord) -> ExpansionLibrary {
+    var value = library
+    value.items = items.filter { $0.id != draft.id } + [draft]
+    value.errors[draft.id] = nil
+    return value
   }
-
-  var archive: LibraryArchive { LibraryArchive(collections: collections, snippets: snippets) }
 
   func validateSave(_ draft: SnippetRecord) throws {
-    // Existing remote conflicts remain editable; only a newly introduced collision is rejected.
-    let unchangedKeyword = snippets.contains { $0.id == draft.id && $0.keyword == draft.keyword }
-    try LibraryValidation.validate(draft, among: unchangedKeyword ? [draft] : snippets)
+    guard !(snippets.contains { $0.id == draft.id } && compositions.contains { $0.id == draft.id })
+    else {
+      throw TemplateError.invalid(
+        "This identifier belongs to both a snippet and Composition. Resolve the identity conflict before saving."
+      )
+    }
+    var proposed = library
+    proposed.items = items.filter { $0.id != draft.id } + [draft]
+    proposed.errors[draft.id] = nil  // A deliberate edit can repair unreadable stored content.
+    try proposed.validateContent(draft)
+    if let existing = items.first(where: { $0.id == draft.id }) {
+      guard existing.isComposition == draft.isComposition else {
+        throw TemplateError.invalid("This identifier already belongs to another item type.")
+      }
+    }
+    let prior = items.first { $0.id == draft.id }
+    if prior?.keyword != draft.keyword || prior?.collectionID != draft.collectionID
+      || prior?.blocks != draft.blocks
+    {
+      try rejectNewConflicts(in: proposed)
+    }
     guard
       draft.collectionID == nil || collections.contains(where: { $0.id == draft.collectionID })
-        || snippets.contains(where: { $0.id == draft.id && $0.collectionID == draft.collectionID })
+        || prior?.collectionID == draft.collectionID
     else {
       throw TemplateError.invalid("Choose an existing collection.")
+    }
+  }
+
+  private func rejectNewConflicts(in proposed: ExpansionLibrary) throws {
+    for item in proposed.items {
+      if proposed.conflicts(for: item).contains(where: {
+        proposed.introducesConflict(item, with: $0, comparedTo: library)
+      }) {
+        try proposed.validateKeyword(item)
+      }
     }
   }
 
@@ -107,6 +135,16 @@ import SwiftData
     var record = draft
     record.updatedAt = Date()
     try transaction {
+      if record.isComposition {
+        if let saved = try context.fetch(FetchDescriptor<SavedComposition>()).first(where: {
+          $0.id == record.id
+        }) {
+          try saved.apply(record)
+        } else {
+          context.insert(try SavedComposition(record))
+        }
+        return
+      }
       let records = try context.fetch(FetchDescriptor<SavedSnippet>())
       if let saved = records.first(where: { $0.id == record.id }) {
         try saved.apply(record)
@@ -118,6 +156,9 @@ import SwiftData
 
   func deleteSnippet(_ id: UUID) throws {
     try transaction {
+      for item in try context.fetch(FetchDescriptor<SavedComposition>()) where item.id == id {
+        context.delete(item)
+      }
       for item in try context.fetch(FetchDescriptor<SavedSnippet>()) where item.id == id {
         context.delete(item)
       }
@@ -125,15 +166,17 @@ import SwiftData
   }
 
   func saveCollection(_ record: CollectionRecord) throws {
-    guard !record.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      throw TemplateError.invalid("Give this collection a name.")
-    }
+    try library.validateCollection(record)
+    var proposed = library
+    proposed.collections = collections.filter { $0.id != record.id } + [record]
+    try rejectNewConflicts(in: proposed)
     try transaction {
       if let saved = try context.fetch(FetchDescriptor<SavedCollection>()).first(where: {
         $0.id == record.id
       }) {
         saved.name = record.name
         saved.sortOrder = record.sortOrder
+        saved.appBundleIDs = record.appBundleIDs
         saved.updatedAt = Date()
       } else {
         let saved = SavedCollection(record)
@@ -146,7 +189,15 @@ import SwiftData
   func deleteCollection(_ id: UUID) throws {
     try transaction {
       for snippet in try context.fetch(FetchDescriptor<SavedSnippet>())
-      where snippet.collectionID == id { snippet.collectionID = nil }
+      where snippet.collectionID == id {
+        snippet.collectionID = nil
+        snippet.updatedAt = Date()
+      }
+      for item in try context.fetch(FetchDescriptor<SavedComposition>())
+      where item.collectionID == id {
+        item.collectionID = nil
+        item.updatedAt = Date()
+      }
       for collection in try context.fetch(FetchDescriptor<SavedCollection>())
       where collection.id == id { context.delete(collection) }
     }
@@ -155,9 +206,16 @@ import SwiftData
   func importArchive(_ data: Data) throws {
     let archive = try JSONDecoder().decode(LibraryArchive.self, from: data)
     try LibraryValidation.validateImport(archive, existing: self.archive)
+    var proposed = library
+    proposed.items += archive.snippets + archive.compositions.map(\.item)
+    proposed.collections += archive.collections
+    try rejectNewConflicts(in: proposed)
     try transaction {
       for collection in archive.collections { context.insert(SavedCollection(collection)) }
       for snippet in archive.snippets { context.insert(try SavedSnippet(snippet)) }
+      for composition in archive.compositions {
+        context.insert(try SavedComposition(composition.item))
+      }
     }
   }
 
@@ -168,7 +226,7 @@ import SwiftData
   }
 
   func seedExamples() throws {
-    guard snippets.isEmpty && collections.isEmpty else { return }
+    guard items.isEmpty && collections.isEmpty else { return }
     let development = CollectionRecord(name: "Development", sortOrder: 0)
     let personal = CollectionRecord(name: "Personal", sortOrder: 1)
     let samples = [
@@ -197,19 +255,26 @@ import SwiftData
   private struct Recovery: Codable {
     var archive: LibraryArchive
     var rawPlaceholders: [UUID: Data]
+    var rawBlocks: [UUID: Data]? = nil
   }
 
   func recoveryData() throws -> Data {
-    try JSONEncoder().encode(Recovery(archive: archive, rawPlaceholders: rawPlaceholderData))
+    try JSONEncoder().encode(
+      Recovery(archive: archive, rawPlaceholders: rawPlaceholderData, rawBlocks: rawBlockData))
   }
 
   func importRecovery(_ data: Data) throws {
-    guard snippets.isEmpty && collections.isEmpty else {
+    guard items.isEmpty && collections.isEmpty else {
       throw TemplateError.invalid("Recovery requires an empty local library.")
     }
     let recovery = try JSONDecoder().decode(Recovery.self, from: data)
     try transaction {
       for collection in recovery.archive.collections { context.insert(SavedCollection(collection)) }
+      for composition in recovery.archive.compositions {
+        let row = try SavedComposition(composition.item)
+        if let data = recovery.rawBlocks?[composition.id] { row.blockData = data }
+        context.insert(row)
+      }
       for snippet in recovery.archive.snippets {
         let row = try SavedSnippet(snippet)
         if let data = recovery.rawPlaceholders[snippet.id] { row.placeholderData = data }
@@ -246,6 +311,26 @@ import SwiftData
       }
       for duplicate in group where duplicate !== canonical { context.delete(duplicate) }
     }
+    let compositionGroups = Dictionary(
+      grouping: try context.fetch(FetchDescriptor<SavedComposition>()), by: \.id)
+    for group in compositionGroups.values where group.count > 1 {
+      let sorted = group.sorted { ($0.updatedAt, $0.rowID) < ($1.updatedAt, $1.rowID) }
+      guard let winner = sorted.last, let canonical = group.min(by: { $0.rowID < $1.rowID }) else {
+        continue
+      }
+      if canonical !== winner {
+        canonical.name = winner.name
+        canonical.keyword = winner.keyword
+        canonical.template = winner.template
+        canonical.collectionID = winner.collectionID
+        canonical.isFavorite = winner.isFavorite
+        canonical.isEnabled = winner.isEnabled
+        canonical.blockData = winner.blockData
+        canonical.createdAt = winner.createdAt
+        canonical.updatedAt = winner.updatedAt
+      }
+      for duplicate in group where duplicate !== canonical { context.delete(duplicate) }
+    }
     let collectionGroups = Dictionary(
       grouping: try context.fetch(FetchDescriptor<SavedCollection>()), by: \.id)
     for group in collectionGroups.values where group.count > 1 {
@@ -255,6 +340,7 @@ import SwiftData
       }
       canonical.name = winner.name
       canonical.sortOrder = winner.sortOrder
+      canonical.appBundleIDs = winner.appBundleIDs
       canonical.updatedAt = winner.updatedAt
       for duplicate in group where duplicate !== canonical { context.delete(duplicate) }
     }
@@ -296,11 +382,33 @@ import SwiftData
           isEnabled: saved.isEnabled, createdAt: saved.createdAt, updatedAt: saved.updatedAt)
       }
     }
+    var rawBlocks: [UUID: Data] = [:]
+    let fetchedCompositions = try context.fetch(FetchDescriptor<SavedComposition>()).map {
+      saved -> CompositionRecord in
+      rawBlocks[saved.id] = saved.blockData
+      do { return CompositionRecord(try saved.record()) } catch {
+        errors[saved.id] =
+          "Composition blocks couldn’t be read. Rebuild the blocks and save to repair."
+        return CompositionRecord(
+          SnippetRecord(
+            id: saved.id, name: saved.name, keyword: saved.keyword,
+            collectionID: saved.collectionID, isFavorite: saved.isFavorite,
+            isEnabled: saved.isEnabled,
+            createdAt: saved.createdAt, updatedAt: saved.updatedAt, blocks: []))
+      }
+    }
+    compositions = fetchedCompositions
+    rawBlockData = rawBlocks
     let fetchedCollections = try context.fetch(FetchDescriptor<SavedCollection>()).map(\.record)
     snippets = fetchedSnippets.sorted {
       $0.name.localizedStandardCompare($1.name) == .orderedAscending
     }
     collections = fetchedCollections.sorted { ($0.sortOrder, $0.name) < ($1.sortOrder, $1.name) }
+    let collisions = Set(fetchedSnippets.map(\.id)).intersection(fetchedCompositions.map(\.id))
+    for id in collisions {
+      errors[id] =
+        "A snippet and Composition share this identifier. Export a recovery backup before repairing this library."
+    }
     rawPlaceholderData = raw
     recordErrors = errors
     revision += 1

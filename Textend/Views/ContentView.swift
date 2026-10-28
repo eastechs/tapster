@@ -12,32 +12,25 @@ struct ContentView: View {
       .background(WindowLifecycleView(state: state))
       .onAppear {
         guard !state.isDirty else { return }
-        let selection: LibrarySelection
-        if restoredScope == "favorites" {
-          selection = .favorites
-        } else if let id = UUID(uuidString: restoredScope),
-          state.store.collections.contains(where: { $0.id == id })
+        let selection = LibrarySelection(storedValue: restoredScope)
+        if case .collection(let id) = selection,
+          !state.store.collections.contains(where: { $0.id == id })
         {
-          selection = .collection(id)
+          state.selectScope(.all)
         } else {
-          selection = .all
+          state.selectScope(selection)
         }
-        state.selectScope(selection)
         if let id = UUID(uuidString: restoredID),
-          state.store.snippets.contains(where: { $0.id == id })
+          state.store.items.contains(where: { $0.id == id })
         {
           state.select(id)
         }
       }
       .onChange(of: state.selectedID) { _, value in restoredID = value?.uuidString ?? "" }
       .onChange(of: state.scope) { _, value in
-        switch value {
-        case .all: restoredScope = "all"
-        case .favorites: restoredScope = "favorites"
-        case .collection(let id): restoredScope = id.uuidString
-        }
+        restoredScope = value.storedValue
       }
-      .alert("Save changes to this snippet?", isPresented: $state.showingUnsavedAlert) {
+      .alert("Save changes to this item?", isPresented: $state.showingUnsavedAlert) {
         Button("Save") { state.resolveUnsaved(save: true) }.disabled(state.draftError != nil)
         Button("Discard Changes", role: .destructive) { state.resolveUnsaved(save: false) }
         Button("Cancel", role: .cancel) { state.cancelTransition() }

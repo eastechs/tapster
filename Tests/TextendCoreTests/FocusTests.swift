@@ -44,6 +44,28 @@ final class FocusTests: XCTestCase {
     XCTAssertNotEqual(h.service.currentTarget(), third)
   }
 
+  @MainActor func testManualSnapshotRequiresExactEditableElementAndSelection() throws {
+    let h = FocusHarness()
+    h.element = AXUIElementCreateApplication(900_001)
+    h.role = kAXTextAreaRole
+    h.range = CFRange(location: 4, length: 8)
+    let snapshot = try XCTUnwrap(h.service.capture())
+    XCTAssertTrue(h.service.matches(snapshot, selection: true))
+    h.range = CFRange(location: 5, length: 8)
+    XCTAssertFalse(h.service.matches(snapshot, selection: true))
+    XCTAssertTrue(h.service.matches(snapshot, selection: false))
+    h.element = AXUIElementCreateApplication(900_003)
+    XCTAssertFalse(h.service.matches(snapshot, selection: false))
+    h.enabled = false
+    XCTAssertNil(h.service.capture())
+    h.enabled = true
+    h.role = kAXButtonRole
+    XCTAssertNil(h.service.capture())
+    h.role = kAXTextAreaRole
+    h.range = nil
+    XCTAssertNil(h.service.capture())
+  }
+
   @MainActor func testSecureFieldsAndOwnEditorsRemainExcluded() {
     let h = FocusHarness()
     h.element = AXUIElementCreateApplication(900_001)
@@ -51,8 +73,10 @@ final class FocusTests: XCTestCase {
     XCTAssertNil(h.service.currentTarget())
     h.subrole = nil
     XCTAssertNotNil(h.service.currentTarget())
-    h.application?.bundleID = "textend.test"
-    XCTAssertNil(h.service.currentTarget())
+    for id in BuildIdentity.applicationBundleIDs.union(["textend.test"]) {
+      h.application?.bundleID = id
+      XCTAssertNil(h.service.currentTarget(), "Both Textend editors must stay excluded")
+    }
     h.identifier = "textend-expansion-test"
     XCTAssertNotNil(h.service.currentTarget())
     h.element = nil
@@ -66,6 +90,9 @@ final class FocusTests: XCTestCase {
   var window: AXUIElement?
   var subrole: String?
   var identifier: String?
+  var role: String?
+  var range: CFRange?
+  var enabled = true
   lazy var service = FocusService(
     application: { [unowned self] in application },
     attribute: { [unowned self] _, name in
@@ -74,6 +101,11 @@ final class FocusTests: XCTestCase {
       case kAXFocusedWindowAttribute: return window
       case kAXSubroleAttribute: return subrole as CFString?
       case kAXIdentifierAttribute: return identifier as CFString?
+      case kAXRoleAttribute: return role as CFString?
+      case kAXEnabledAttribute: return enabled ? kCFBooleanTrue : kCFBooleanFalse
+      case kAXSelectedTextRangeAttribute:
+        guard var range else { return nil }
+        return AXValueCreate(.cfRange, &range)
       default: return nil
       }
     }, ownBundleID: "textend.test")

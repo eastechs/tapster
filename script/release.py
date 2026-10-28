@@ -157,8 +157,8 @@ def build_release(args, config):
         "-derivedDataPath", work / "DerivedData", "-clonedSourcePackagesDirPath", ROOT / "build/SourcePackages",
         "-disableAutomaticPackageResolution", "-archivePath", archive,
         f"MARKETING_VERSION={args.version}", f"CURRENT_PROJECT_VERSION={args.build}",
-        f"DEVELOPMENT_TEAM={config['team_id']}", f"CODE_SIGN_IDENTITY={matches[0]}",
-        f"PROVISIONING_PROFILE_SPECIFIER={profile['UUID']}",
+        f"DEVELOPMENT_TEAM={config['team_id']}", f"TEXTEND_SIGNING_IDENTITY={matches[0]}",
+        f"TEXTEND_PROVISIONING_PROFILE={profile['UUID']}",
         "ONLY_ACTIVE_ARCH=NO", "ARCHS=arm64 x86_64", "archive")
     options = work / "ExportOptions.plist"
     options.write_bytes(plistlib.dumps({"method": "developer-id", "teamID": config["team_id"],

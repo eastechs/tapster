@@ -12,9 +12,14 @@ struct SnippetDetailView: View {
         ContentUnavailableView {
           Label("Your words, a shortcut away", systemImage: "text.insert")
         } description: {
-          Text("Select a snippet or create a new one.")
+          Text(
+            state.scope == .compositions
+              ? "Select a Composition or create a new one."
+              : "Select a snippet or create a new one.")
         } actions: {
-          Button("New Snippet", action: state.newSnippet)
+          Button(state.scope == .compositions ? "New Composition" : "New Snippet") {
+            if state.scope == .compositions { state.newComposition() } else { state.newSnippet() }
+          }
         }
       }
     }

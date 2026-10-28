@@ -38,6 +38,84 @@ final class InsertionTests: XCTestCase {
       pasteboard.pasteboardItems?.first?.string(forType: .string), "Test image {one}.png")
   }
 
+  @MainActor func testManualCursorReplacesSelectionAndCancelsOnElementChange() throws {
+    for changesElement in [false, true] {
+      let h = CursorHarness()
+      defer { h.stop() }
+      h.focus.range = CFRange(location: 2, length: 5)
+      h.focus.fieldText = "hiWORLD!"
+      var sameElement = true
+      try h.service.insert(
+        .init(text: "a\nB", cursorUTF16Offset: 1), target: h.target,
+        selection: XCTUnwrap(h.focus.range), validate: { sameElement })
+      XCTAssertFalse(h.keys.contains(51))
+      h.focus.fieldText = "hia\nB!"
+      h.focus.range = CFRange(location: 5, length: 0)
+      sameElement = !changesElement
+      h.tick()
+      XCTAssertEqual(h.keys.filter { $0 == 123 }.count, changesElement ? 0 : 4)
+    }
+  }
+
+  @MainActor func testCursorOnlyManualItemDeletesOnlyAnExistingSelection() throws {
+    for length in [0, 5] {
+      let h = CursorHarness()
+      defer { h.stop() }
+      h.focus.range = CFRange(location: 2, length: length)
+      try h.service.insert(
+        .init(text: "", cursorUTF16Offset: 0), target: h.target,
+        selection: XCTUnwrap(h.focus.range), validate: { true })
+      XCTAssertEqual(h.keys, length == 0 ? [] : [51, 51])
+    }
+  }
+
+  @MainActor func testCompositionSpaceBesideCursorPreservesTextDuringBothInsertionPaths() throws {
+    let first = SnippetRecord(name: "Comp One", template: "Comp one {cursor}")
+    let second = SnippetRecord(name: "Comp Two", template: "and a second comp.")
+    let composition = SnippetRecord(
+      name: "Composition", keyword: "gc",
+      blocks: [.init(snippetID: first.id, separator: .space), .init(snippetID: second.id)])
+    let library = ExpansionLibrary(items: [first, second, composition])
+    let result = try library.resolve(composition, clipboard: nil)
+    XCTAssertEqual(result.text, "Comp one  and a second comp.")
+    XCTAssertEqual(result.cursorUTF16Offset, 9)
+
+    for manual in [false, true] {
+      let h = CursorHarness()
+      defer { h.stop() }
+      let html = Data("<b>Original clipboard</b>".utf8)
+      h.pasteboard.setData(html, forType: .html)
+      if manual {
+        h.focus.range = CFRange(location: 0, length: 2)
+        try h.service.insert(
+          result, target: h.target, selection: XCTUnwrap(h.focus.range), validate: { true })
+      } else {
+        try h.service.replace(
+          keyword: composition.keyword, with: result.text, target: h.target,
+          cursorUTF16Offset: result.cursorUTF16Offset)
+      }
+      // Pasting preserves adjacent spaces instead of typing macOS's double-space shortcut.
+      XCTAssertEqual(h.keys, manual ? [9, 9] : [51, 51, 51, 51, 9, 9])
+      XCTAssertTrue(h.flags.suffix(2).allSatisfy { $0.contains(.maskCommand) })
+      XCTAssertEqual(h.pasteboard.string(forType: .string), result.text)
+      h.tick()
+      XCTAssertFalse(h.keys.contains(123), "Wait until the host consumes the paste.")
+      h.focus.fieldText = result.text
+      h.focus.range = CFRange(location: result.text.utf16.count, length: 0)
+      h.tick()
+      XCTAssertEqual(
+        h.keys.filter { $0 == 123 }.count, " and a second comp.".count * 2,
+        "Place the caret between the source's trailing space and the separator.")
+      XCTAssertTrue(h.failures.isEmpty)
+      XCTAssertTrue(h.markers.allSatisfy { $0 == TextInsertionService.eventMarker })
+      let restore = try XCTUnwrap(h.jobs.first(where: { $0.0 == 0.3 })?.1)
+      restore.perform()
+      XCTAssertEqual(h.pasteboard.string(forType: .string), "Original clipboard")
+      XCTAssertEqual(h.pasteboard.data(forType: .html), html)
+      XCTAssertFalse(h.service.isBusy)
+    }
+  }
+
   @MainActor func testClipboardTextAndImagesWithoutFileReferences() {
     let pasteboard = NSPasteboard(name: .init(UUID().uuidString))
     defer { pasteboard.releaseGlobally() }
@@ -105,18 +183,21 @@ final class InsertionTests: XCTestCase {
   }
 
   @MainActor func testNewUserCopyIsNeverOverwritten() throws {
-    let pasteboard = NSPasteboard(name: .init(UUID().uuidString))
-    defer { pasteboard.releaseGlobally() }
-    pasteboard.setString("Original", forType: .string)
-    let focus = Focus()
-    let service = TextInsertionService(
-      focus: focus, pasteboard: pasteboard, secureInput: { false }, postEvent: { _ in })
-    defer { service.finish() }
-    try service.replace(keyword: "x", with: "First\nSecond", target: XCTUnwrap(focus.value))
-    pasteboard.clearContents()
-    pasteboard.setString("New user copy", forType: .string)
-    service.finish()
-    XCTAssertEqual(pasteboard.string(forType: .string), "New user copy")
+    for text in ["First\nSecond", "First  Second"] {
+      let pasteboard = NSPasteboard(name: .init(UUID().uuidString))
+      defer { pasteboard.releaseGlobally() }
+      pasteboard.setString("Original", forType: .string)
+      let focus = Focus()
+      let service = TextInsertionService(
+        focus: focus, pasteboard: pasteboard, secureInput: { false }, postEvent: { _ in })
+      defer { service.finish() }
+      try service.replace(keyword: "x", with: text, target: XCTUnwrap(focus.value))
+      XCTAssertEqual(pasteboard.string(forType: .string), text)
+      pasteboard.clearContents()
+      pasteboard.setString("New user copy", forType: .string)
+      service.finish()
+      XCTAssertEqual(pasteboard.string(forType: .string), "New user copy")
+    }
   }
 
   @MainActor func testChangedFocusAndSecureInputPreventInsertion() throws {
@@ -244,6 +325,8 @@ final class InsertionTests: XCTestCase {
     try h.service.replace(
       keyword: "gc", with: "git commit ", target: h.target, cursorUTF16Offset: 11)
     XCTAssertFalse(h.jobs.contains { $0.0 == 0.01 })
+    XCTAssertFalse(h.keys.contains(9), "A single trailing space still uses Unicode insertion.")
+    XCTAssertEqual(h.pasteboard.string(forType: .string), "Original clipboard")
     h.service.finish()
     let count = h.keys.count
     for offset in [-1, 1, 4] {
@@ -333,6 +416,7 @@ final class InsertionTests: XCTestCase {
   var secure = false
   var keys: [Int64] = []
   var markers: [Int64] = []
+  var flags: [CGEventFlags] = []
   var jobs: [(TimeInterval, DispatchWorkItem)] = []
   var failures: [String] = []
   lazy var service = TextInsertionService(
@@ -341,6 +425,7 @@ final class InsertionTests: XCTestCase {
     postEvent: { [unowned self] event in
       keys.append(event.getIntegerValueField(.keyboardEventKeycode))
       markers.append(event.getIntegerValueField(.eventSourceUserData))
+      flags.append(event.flags)
     }, schedule: { [unowned self] delay, work in jobs.append((delay, work)) },
     cursorFailure: { [unowned self] in failures.append($0) })
 

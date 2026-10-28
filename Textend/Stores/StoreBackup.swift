@@ -5,7 +5,7 @@ enum StoreBackup {
   /// SQLite's backup API includes committed WAL contents without copying a live file set.
   static func beforeMigration(at source: URL) throws {
     guard FileManager.default.fileExists(atPath: source.path) else { return }
-    let destination = source.appendingPathExtension("pre-v2.sqlite")
+    let destination = source.appendingPathExtension("pre-v3.sqlite")
     guard !FileManager.default.fileExists(atPath: destination.path) else { return }
     let temporary = destination.appendingPathExtension(UUID().uuidString)
     var input: OpaquePointer?

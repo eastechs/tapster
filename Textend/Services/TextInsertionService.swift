@@ -10,6 +10,8 @@ import CoreGraphics
   private let schedule: @MainActor (TimeInterval, DispatchWorkItem) -> Void
   private let cursorFailure: @MainActor (String) -> Void
   private(set) var isBusy = false
+  private var manualInputMonitors: [Any] = []
+  private var manualTargetCheck: (@MainActor () -> Bool)?
   private var restoreWork: DispatchWorkItem?
   private var cursorWork: DispatchWorkItem?
   private var cursorGeneration = 0
@@ -48,13 +50,39 @@ import CoreGraphics
   func replace(
     keyword: String, with text: String, target: ExpansionTarget, cursorUTF16Offset: Int? = nil
   ) throws {
-    guard !isBusy, focus.currentTarget() == target, !secureInput() else {
+    try perform(keyword: keyword, text: text, target: target, cursorUTF16Offset: cursorUTF16Offset)
+  }
+
+  func insert(
+    _ expansion: ResolvedExpansion, target: ExpansionTarget, selection: CFRange,
+    validate: @escaping @MainActor () -> Bool
+  ) throws {
+    guard !isBusy else { throw TemplateError.invalid("Another insertion is finishing. Try again.") }
+    manualTargetCheck = validate
+    do {
+      try perform(
+        keyword: "", text: expansion.text, target: target,
+        cursorUTF16Offset: expansion.cursorUTF16Offset, selectedRange: selection)
+    } catch {
+      manualTargetCheck = nil
+      throw error
+    }
+  }
+
+  private func perform(
+    keyword: String, text: String, target: ExpansionTarget,
+    cursorUTF16Offset: Int?, selectedRange: CFRange? = nil
+  ) throws {
+    guard !isBusy, focus.currentTarget() == target, !secureInput(), validManualTarget else {
       throw TemplateError.invalid(
         "Expansion cancelled because the target changed or another expansion is finishing.")
     }
     // Prepare every event and clipboard representation before deleting the keyword.
+    // Consecutive space keystrokes can trigger macOS's double-space period
+    // substitution. Paste them literally, preserving template spacing and cursor offsets.
     let usesPasteboard =
       text.count > 200 || text.contains("\n") || text.contains("\r") || text.contains("\t")
+      || text.contains("  ")
     var placement: (end: Int, destination: Int, arrows: [CGEvent]?)?
     var relativeArrows: [CGEvent]?
     if let offset = cursorUTF16Offset {
@@ -72,7 +100,7 @@ import CoreGraphics
           for _ in text[index...] { arrows! += try keyEvents(123) }
         }
         let range = focus.selectionRange()
-        if let range, range.length != 0 {
+        if let range, range.length != 0, selectedRange == nil {
           throw TemplateError.invalid("Expansion cancelled because the selection changed.")
         }
         // A numeric range does not imply that a web editor supports reading text
@@ -83,7 +111,7 @@ import CoreGraphics
             in: CFRange(
               location: range.location - keyword.utf16.count, length: keyword.utf16.count))
         }
-        if let range, readableContext == keyword || arrows == nil {
+        if let range, selectedRange != nil || readableContext == keyword || arrows == nil {
           guard range.location >= keyword.utf16.count else {
             throw TemplateError.invalid(
               "Expansion cancelled because the caret position changed.")
@@ -104,6 +132,10 @@ import CoreGraphics
     for _ in keyword {
       events += try keyEvents(51)
     }
+    // A cursor-only manual item replaces an existing selection with empty text.
+    if text.isEmpty, let selectedRange, selectedRange.length > 0 {
+      events += try keyEvents(51)
+    }
     if usesPasteboard {
       events += try keyEvents(9, flags: .maskCommand)
     } else {
@@ -120,7 +152,7 @@ import CoreGraphics
         events += [down, up]
       }
     }
-    guard focus.currentTarget() == target, !secureInput() else {
+    guard focus.currentTarget() == target, !secureInput(), validManualTarget else {
       throw TemplateError.invalid("Expansion cancelled because focus changed.")
     }
     if usesPasteboard {
@@ -144,11 +176,20 @@ import CoreGraphics
       }
       ownChangeCount = pasteboard.changeCount
     }
-    guard focus.currentTarget() == target, !secureInput() else {
+    guard focus.currentTarget() == target, !secureInput(), validManualTarget else {
       restoreClipboard()
       throw TemplateError.invalid("Expansion cancelled because focus changed.")
     }
+    if let selectedRange {
+      guard let current = focus.selectionRange(), current.location == selectedRange.location,
+        current.length == selectedRange.length, validManualTarget
+      else {
+        restoreClipboard()
+        throw TemplateError.invalid("Insertion cancelled because the selection changed.")
+      }
+    }
     isBusy = true
+    if selectedRange != nil { monitorManualInput() }
     for event in events {
       event.setIntegerValueField(.eventSourceUserData, value: Self.eventMarker)
       postEvent(event)
@@ -158,6 +199,7 @@ import CoreGraphics
       self.restoreClipboard()
       self.restoreWork = nil
       self.isBusy = self.cursorWork != nil
+      if !self.isBusy { self.finishManualInput() }
     }
     restoreWork = work
     schedule(usesPasteboard ? 0.3 : 0.04, work)
@@ -182,7 +224,7 @@ import CoreGraphics
     let work = DispatchWorkItem { [weak self] in
       guard let self, self.cursorGeneration == generation else { return }
       defer { self.cancelCursorPlacement() }
-      guard self.focus.currentTarget() == target, !self.secureInput(),
+      guard self.focus.currentTarget() == target, !self.secureInput(), self.validManualTarget,
         self.focus.selectionRange().map({ $0.length == 0 }) ?? true
       else { return }
       for event in arrows {
@@ -200,7 +242,41 @@ import CoreGraphics
     restoreWork = nil
     restoreClipboard()
     isBusy = false
+    finishManualInput()
   }
+
+  private func finishManualInput() {
+    manualTargetCheck = nil
+    for monitor in manualInputMonitors { NSEvent.removeMonitor(monitor) }
+    manualInputMonitors = []
+  }
+
+  private func monitorManualInput() {
+    // Manual insertion must observe interruption even when automatic expansion is paused.
+    let mask: NSEvent.EventTypeMask = [
+      .keyDown, .leftMouseDown, .rightMouseDown, .scrollWheel, .flagsChanged,
+    ]
+    let interrupt: (NSEvent) -> Void = { [weak self] event in
+      guard event.cgEvent?.getIntegerValueField(.eventSourceUserData) != Self.eventMarker else {
+        return
+      }
+      self?.cancelCursorPlacement()
+    }
+    if let monitor = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: interrupt) {
+      manualInputMonitors.append(monitor)
+    }
+    if let monitor = NSEvent.addLocalMonitorForEvents(
+      matching: mask,
+      handler: { event in
+        interrupt(event)
+        return event
+      })
+    {
+      manualInputMonitors.append(monitor)
+    }
+  }
+
+  private var validManualTarget: Bool { manualTargetCheck?() ?? true }
 
   /// Physical input, focus changes, pause, and index changes must never be
   /// followed by a delayed cursor move from an earlier expansion.
@@ -209,6 +285,7 @@ import CoreGraphics
     cursorWork?.cancel()
     cursorWork = nil
     isBusy = restoreWork != nil
+    if !isBusy { finishManualInput() }
   }
 
   private func scheduleCursor(
@@ -217,7 +294,7 @@ import CoreGraphics
   ) {
     let work = DispatchWorkItem { [weak self] in
       guard let self, self.cursorGeneration == generation else { return }
-      guard self.focus.currentTarget() == target, !self.secureInput() else {
+      guard self.focus.currentTarget() == target, !self.secureInput(), self.validManualTarget else {
         self.cancelCursorPlacement()
         return
       }
@@ -231,7 +308,7 @@ import CoreGraphics
         // Web editors can report a successful AX write without moving the caret.
         // Prefer keyboard navigation for bounded moves, even with readable AX text.
         if let arrows {
-          guard self.focus.currentTarget() == target, !self.secureInput(),
+          guard self.focus.currentTarget() == target, !self.secureInput(), self.validManualTarget,
             let range = self.focus.selectionRange(), range.length == 0, range.location == end
           else {
             self.cancelCursorPlacement()

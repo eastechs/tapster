@@ -2,11 +2,14 @@
 """Offline checks for CloudKit profile validation."""
 import copy
 import datetime
+import hashlib
+import plistlib
+from types import SimpleNamespace
 import unittest
 import pathlib
 import tempfile
 from unittest.mock import patch
-from provisioning import BUNDLE, CONTAINER, TEAM, NAMES, install_profile, validate_profile
+from provisioning import BUNDLE, BUNDLES, CONTAINER, TEAM, NAMES, install_profile, validate_profile, resolve_profile, signing_style, validate_built_app
 
 
 class ProvisioningTests(unittest.TestCase):
@@ -53,13 +56,77 @@ class ProvisioningTests(unittest.TestCase):
             "TeamIdentifier": [TEAM],
             "ProvisionsAllDevices": kind == "release",
             "Entitlements": {
-                "com.apple.application-identifier": f"{TEAM}.{BUNDLE}",
+                "com.apple.application-identifier": f"{TEAM}.{BUNDLES[kind]}",
                 "com.apple.developer.icloud-container-identifiers": [CONTAINER],
                 "com.apple.developer.icloud-services": "*",
                 "com.apple.developer.icloud-container-environment": ["Development", "Production"],
                 "com.apple.developer.aps-environment": "development" if kind == "development" else "production",
             },
         }
+
+    def test_development_and_release_identities_cannot_be_interchanged(self):
+        for kind, other in [("development", "release"), ("release", "development")]:
+            profile = self.profile(kind)
+            profile["Entitlements"]["com.apple.application-identifier"] = f"{TEAM}.{BUNDLES[other]}"
+            with self.subTest(kind=kind), self.assertRaises(RuntimeError):
+                validate_profile(profile, kind)
+        self.assertEqual(BUNDLE, "chat.eastechs.tapster")
+        self.assertNotEqual(BUNDLES["development"], BUNDLE)
+
+    def test_development_resolver_accepts_xcode_profile_and_prefers_named_test_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            certificate = b"test certificate"
+            fingerprint = hashlib.sha1(certificate).hexdigest().upper()
+            automatic = self.profile("development")
+            automatic.update(Name=f"Mac Team Provisioning Profile: {BUNDLES['development']}",
+                             UUID="automatic", DeveloperCertificates=[certificate])
+            named = dict(automatic, Name=NAMES["development"], UUID="named")
+            profiles = {"automatic.provisionprofile": automatic}
+            (root / "automatic.provisionprofile").touch()
+            def run(command, **kwargs):
+                if command[1] == "find-identity":
+                    return SimpleNamespace(returncode=0, stdout=f'1) {fingerprint} "Apple Development: Test"')
+                return SimpleNamespace(returncode=0, stdout=plistlib.dumps(profiles[pathlib.Path(command[-1]).name]))
+            with patch("provisioning.profile_folders", return_value=[root]), patch("provisioning.subprocess.run", side_effect=run):
+                self.assertEqual(resolve_profile("development")[0]["UUID"], "automatic")
+                (root / "named.provisionprofile").touch()
+                profiles["named.provisionprofile"] = named
+                self.assertEqual(resolve_profile("development")[0]["UUID"], "named")
+                profiles.clear()
+                profiles["automatic.provisionprofile"] = dict(
+                    automatic, Entitlements=self.profile("release")["Entitlements"])
+                (root / "named.provisionprofile").unlink()
+                with self.assertRaises(RuntimeError):
+                    resolve_profile("development")
+
+    def test_xcode_managed_profiles_require_automatic_signing(self):
+        self.assertEqual(signing_style({"IsXcodeManaged": True}), "Automatic")
+        self.assertEqual(signing_style({"IsXcodeManaged": False}), "Manual")
+        self.assertEqual(signing_style({}), "Manual")
+
+    def test_built_app_validation_rejects_release_identity_and_signed_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = pathlib.Path(directory)
+            (app / "Contents").mkdir()
+            info = app / "Contents/Info.plist"
+            info.write_bytes(plistlib.dumps({"CFBundleIdentifier": BUNDLE}))
+            with self.assertRaises(RuntimeError):
+                validate_built_app(app, "development")
+            info.write_bytes(plistlib.dumps({"CFBundleIdentifier": BUNDLES["development"]}))
+            signed = dict(self.profile("development")["Entitlements"])
+            signed.update({
+                "com.apple.developer.team-identifier": TEAM,
+                "com.apple.developer.icloud-services": ["CloudKit"],
+                "com.apple.developer.icloud-container-environment": "Development",
+            })
+            def run(command, **kwargs):
+                return SimpleNamespace(returncode=0, stdout=plistlib.dumps(signed))
+            with patch("provisioning.read_profile", return_value=self.profile("development")), patch("provisioning.subprocess.run", side_effect=run):
+                validate_built_app(app, "development")
+                signed["com.apple.developer.icloud-container-environment"] = "Production"
+                with self.assertRaises(RuntimeError):
+                    validate_built_app(app, "development")
 
     def test_accepts_matching_profiles(self):
         for kind in ("development", "release"):

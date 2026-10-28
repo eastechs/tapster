@@ -949,3 +949,218 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
   Remote verification confirms the tag targets the manifest's source revision.
   The installed app was left for Dave to update through Sparkle. Physical
   sleep/wake typing and the installed-app update remain unverified.
+
+## Quick Access, app-specific collections, and Compositions (2026-10-27)
+
+### Implementation and automated verification
+
+- Added a reusable nonactivating Quick Access panel with local configurable
+  Command-Shift-Space shortcut, current-app/all-items filtering, favorites-first
+  search, preview, Return insertion, Command-Return copy, and Escape dismissal.
+  KeyboardShortcuts 3.1.0 provides the recorder and registration; its MIT license
+  is bundled. Opening the panel cancels automatic matching. It does not change
+  Dock policy or open library windows.
+- Manual insertion captures the original AX element and numeric selection plus
+  the clipboard value. It resolves saved content once at confirmation and checks
+  the destination, saved-library revision, app restrictions, exclusions, Secure
+  Input, and permissions before posting events. Both insertion paths share
+  serialization, clipboard restoration guards, and caret-placement cancellation.
+- Collections store optional app bundle IDs. Shared eligibility logic selects
+  app-specific keywords ahead of globals and suppresses equally scoped conflicts
+  only in overlapping apps. Missing or malformed collection scopes fail closed.
+  Local saves and imports reject newly introduced conflicts, including a wider
+  conflicting app region or a missing collection restored by an import.
+- Compositions have live snippet references, literal blocks, stable block IDs,
+  separators, reorder controls, a combined preview, and at most one cursor across
+  included occurrences. Availability intersects every source and the Composition's
+  own collection. Missing/invalid sources cannot produce partial output.
+- Added schema V3 and JSON backup V2 while preserving frozen V1/V2 model identities
+  and V1 JSON imports. Migration creates a pre-v3 SQLite backup. Recovery retains
+  malformed raw block data; duplicate Composition rows reconcile deterministically.
+  Ordered blocks merge as one draft field. Partial remote arrivals remain visible
+  and unavailable until dependencies arrive.
+- Added focused tests for resolution, cursor offsets, repeated references,
+  restrictions/precedence/conflicts, dirty draft merging, remote deletions, partial
+  arrivals, identity reconciliation, raw recovery, migration, atomic imports,
+  palette search, exact focus snapshots, selection replacement, and delayed caret
+  cancellation. A shared remote-store fixture keeps the persistence checks isolated.
+- Final `./script/check.sh` passes: 114 Swift tests (109 core, 5 layout), 16 offline
+  release tests, 5 provisioning tests, strict formatting, shell syntax, license
+  consistency, whitespace checks, and the provisioned Debug build. Deep/strict
+  signature verification succeeds with host certificate trust. The sandbox alone
+  could not access the required trust state.
+- SwiftPM's new resource bundle exposed globally applied signing overrides and
+  mismatched Debug architectures. Signing/profile overrides now use app-specific
+  settings; Debug uses the active architecture. Release continues to request both
+  arm64 and x86_64. A universal release has not been built for these changes.
+- Review-loop reached a clean code/automated pass on iteration 3. Earlier passes
+  fixed conflict-region detection, delayed caret cancellation while auto expansion
+  is paused, search focus on repeated palette openings, and cursor-only insertion
+  over a selection. No native or CloudKit acceptance is inferred from these tests.
+
+### Remaining acceptance
+
+- Dave's UI inspection preference is pending. The development app is built but
+  has not been launched for this feature check. The installed application and its
+  production library were not replaced or changed.
+- Verify the new views, keyboard navigation, shortcut recording, Light/Dark/theme
+  colors, repeated panel use, native focus restoration, selection replacement,
+  secure/excluded fields, and actual insertion in the target applications.
+- Initialize and inspect V3 in the development CloudKit environment, then test
+  restrictions, Compositions, sources, remote edits/deletions, partial arrival,
+  offline changes, and draft conflicts on two updated Macs. Production schema
+  promotion and production-signed access remain release gates.
+- The detailed checklist is in `docs/quick-access-compositions.md`. No source
+  commit, push, release, schema promotion, or publication was performed.
+
+### Separate development identity (2026-10-27)
+
+- Dave requested a distinct development app to avoid replacing production's
+  Accessibility entry while switching builds. Debug now produces `Textend Dev.app`
+  with bundle `chat.eastechs.textend.debug`. Release keeps `Textend.app`,
+  `chat.eastechs.tapster`, its Developer ID profile, and the production CloudKit
+  environment. Resolved Xcode build settings confirm both configurations.
+- Development preferences use the new bundle's UserDefaults domain. Its library
+  now lives under `Application Support/chat.eastechs.textend.debug`; the old
+  development library and production library are preserved. Library/Help windows,
+  menu bar labels, startup settings, logs, and build tooling identify Textend Dev.
+  Both app identities' editors are excluded from development expansion.
+- Provisioning validation rejects interchanged development/production profiles.
+  Development accepts an exact-ID Xcode team profile and prefers a named
+  `Textend Dev CloudKit Development` profile for multiple test Macs. Added the
+  explicit `--setup-development-signing` script mode for initial account-backed
+  provisioning; normal builds remain local and fail clearly when it is missing.
+- 29 focused Swift tests, 16 release tests, and 7 provisioning tests pass. Strict
+  formatting, shell syntax, whitespace checks, and an unsigned Debug compile pass.
+  Review-loop found no further code issues in the identity changes. Production
+  signing settings remain unchanged.
+- The signed build is blocked: Xcode reports that its saved Developer account
+  lacks a valid Xcode token, and the new development identity has no profile yet.
+  No signing fallback or launch was used. Dave must sign in again through Xcode
+  Settings → Accounts before setup can finish. Accessibility for Textend Dev then
+  needs a one-time user grant. UI/cross-app and CloudKit acceptance remain pending.
+
+### Textend Dev provisioning and launch
+
+- After Dave refreshed Xcode sign-in, Xcode registered/provisioned
+  `chat.eastechs.textend.debug` with the existing CloudKit container. Its managed
+  Mac development profile includes both registered test Macs. Signed entitlements
+  select Development and development push notifications.
+- The first setup attempt exposed a signing-mode mismatch: Xcode-managed profiles
+  cannot be passed to a manually managed build. The build script now selects the
+  profile's signing mode, keeps production manual signing unchanged, and validates
+  the built bundle ID, signature, embedded profile, and signed environment before
+  launching. Debug's Xcode default also uses automatic signing.
+- Nine provisioning tests and 16 release tests pass, along with shell syntax and
+  whitespace checks. Review-loop's follow-up pass found no further code issues.
+  The signed Textend Dev build passes the new verification and launches through
+  `--preview`, with automatic expansion paused. One development process and one
+  library window were observed; no production instance was started.
+- Native visual/interaction inspection is pending OS permission. The inspection
+  process reports no Accessibility or screen-capture access, and a capture of
+  only the Textend Dev window failed. This execution host is ChatGPT.app, not the
+  separate Codex.app. No UI acceptance is claimed. Textend Dev also needs its own
+  one-time Accessibility grant before insertion checks.
+
+### Preview expansion state (2026-10-27)
+
+- Dave chose to inspect the UI himself. The subsequent screenshots showed Paused
+  in the menu and sidebar while Settings was enabled and the menu offered Pause.
+  `--sync-preview` skipped engine startup entirely, leaving its initial status
+  unchanged even after an explicit enable action.
+- Preview startup now starts the engine lifecycle in a session-only paused state.
+  Settings and the menu read the same enabled value; Resume starts monitoring or
+  reports the actual permission/input availability. Launching a preview does not
+  overwrite the saved enabled preference. Regular launches retain saved behavior.
+- Added regression coverage for paused startup, retained preferences, wake while
+  paused, explicit resume/pause, duplicate starts, and permission recovery.
+  All 21 focused lifecycle/draft tests pass. Strict Swift formatting and whitespace
+  checks pass. The signed development build passes provisioning/signature
+  validation and was reopened through `--preview`.
+- Corrected the remaining menu Quit label to identify Textend Dev. The review-loop
+  follow-up found no further issues after formatting the new test declaration.
+  Dave's native interaction checks remain pending; no UI acceptance is inferred
+  from the automated checks. No commit, push, or installed-release change.
+
+### Full control hit areas (2026-10-27)
+
+- Replaced the toolbar New menu's hosted SwiftUI label with a native NSPopUpButton.
+  Its entire 56-point control opens the menu, including the space around its icon
+  and arrow. Both creation actions, accessible naming, and the selected theme
+  color are retained.
+- Added a shared label hit-area modifier and applied it inside custom control
+  labels after their sizing/padding. The audit covered sort/favorite, New
+  Collection, expansion status, Settings, Quick Access close, Composition block
+  controls/source rows, and application-removal buttons. Standard native buttons
+  retain their normal behavior and disabled states.
+- The signed development build, five existing native layout checks, strict Swift
+  formatting, and whitespace checks pass. Review-loop reached a clean pass on
+  iteration 1. The preview was gracefully closed and reopened without changing
+  the installed release. Dave is handling live clicks and visual verification;
+  these checks do not establish that acceptance. Nothing committed or pushed.
+
+### New draft name focus (2026-10-27)
+
+- New snippets and Compositions request Name focus after their editor attaches.
+  The request runs once per editor and checks cancellation/current draft identity;
+  saved or remotely deleted records do not trigger it. The input style accepts
+  the editor's focus binding so programmatic focus and its focus ring agree.
+- An isolated native NSHostingView check using the actual input style confirmed
+  that the Name field became first responder and selected the default name.
+  Seven focused draft tests, the signed development build, formatting, and
+  whitespace checks pass. Review-loop reached a clean pass on iteration 1.
+  Textend Dev was reopened for Dave's full creation-flow check. No commit or push.
+
+### Separate Compositions section (2026-10-27)
+
+- Added Compositions directly below All Snippets, with a separate count. All
+  Snippets filters out Compositions; Favorites and collections retain both types.
+  Headings, search labels, sorting labels, and empty states match the section.
+- New items open their primary section while preserving a collection assignment
+  chosen from a collection. Source navigation reveals the source in a matching
+  list. Sidebar selection persists with compatible existing stored values.
+  Unsaved drafts use the same scope rules and Save/Discard/Cancel safeguards.
+- Added seven navigation tests, including source search, type separation,
+  creation, cancelled/failed transitions, collection deletion, a Composition-only
+  library, and selection storage. All 34 focused navigation/draft/Composition/sync
+  tests pass, along with the signed build, strict formatting, and whitespace checks.
+- Review-loop reached a clean pass on iteration 2 after fixing a stale collection
+  search that could hide the selected item following local or remote deletion.
+  Textend Dev was reopened for Dave's UI check. No commit, push, or release change.
+
+
+### Consecutive spaces beside the cursor (2026-10-27)
+
+- Dave observed a period after `Comp one` when a source contained
+  `Comp one {cursor}` and its Composition separator was Space. The resolved text
+  contains two adjacent spaces, which the short-text insertion path sent as
+  separate keystrokes, allowing macOS's double-space period substitution.
+- The shared insertion service now uses its existing guarded paste path whenever
+  resolved text contains consecutive ASCII spaces. It preserves both spaces and
+  the original caret offset for keyword expansion and Quick Access. Single-space
+  short text keeps Unicode insertion; no system typing preferences are changed.
+- A regression using the actual Composition resolver failed against the previous
+  insertion path. All 35 focused insertion/Composition tests now pass, covering
+  both entry points, waiting for paste consumption before moving the caret,
+  restoration of clipboard representations, and protection of a newer user copy.
+  Strict Swift formatting and whitespace checks pass.
+- Review-loop reached a clean pass on iteration 1. The signed development build
+  passed its provisioning/signature validation and was reopened as Textend Dev.
+  Dave confirmed the rebuilt preview fixes the unwanted period in TextEdit.
+  This verifies the reported Composition case; the broader feature and CloudKit
+  acceptance checklist remains separate.
+
+
+### Feature commit verification (2026-10-27)
+
+- Dave authorized committing the accumulated Quick Access, app-specific
+  collections, Compositions, development-identity isolation, and subsequent UI
+  and insertion fixes. The TextEdit double-space fix is user verified.
+- The complete `script/check.sh` passed: 124 Swift core/layout tests, 16 release
+  tests, nine provisioning tests, strict Swift formatting, shell syntax, license
+  consistency, whitespace checks, and the signed Textend Dev build with profile
+  and entitlement validation.
+- The commit review-loop completed a clean pass on iteration 1. Reviewed the
+  pending source, tests, bundled dependency license, provisioning changes, and
+  documentation. The existing feature checklist retains unverified native and
+  V3 CloudKit release acceptance items. This commit does not publish a release.

@@ -24,18 +24,44 @@ struct SnippetRecord: Codable, Equatable, Identifiable {
   var placeholders: [PlaceholderDefinition] = []
   var createdAt = Date()
   var updatedAt = Date()
+  // Shared editor/index representation. Compositions persist in their own entity.
+  var blocks: [CompositionBlock]? = nil
+  var isComposition: Bool { blocks != nil }
 }
 
 struct CollectionRecord: Codable, Equatable, Identifiable {
   var id = UUID()
   var name: String
   var sortOrder = 0
+  var appBundleIDs: [String]? = nil  // nil means all apps; empty means unavailable.
 }
 
 struct LibraryArchive: Codable, Equatable {
-  var version = 1
+  var version = 2
   var collections: [CollectionRecord]
   var snippets: [SnippetRecord]
+  var compositions: [CompositionRecord] = []
+
+  enum CodingKeys: String, CodingKey { case version, collections, snippets, compositions }
+  init(
+    version: Int = 2, collections: [CollectionRecord], snippets: [SnippetRecord],
+    compositions: [CompositionRecord] = []
+  ) {
+    self.version = version
+    self.collections = collections
+    self.snippets = snippets
+    self.compositions = compositions
+  }
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    version = try c.decode(Int.self, forKey: .version)
+    collections = try c.decode([CollectionRecord].self, forKey: .collections)
+    snippets = try c.decode([SnippetRecord].self, forKey: .snippets)
+    compositions = try c.decodeIfPresent([CompositionRecord].self, forKey: .compositions) ?? []
+    if version == 1 && (!compositions.isEmpty || collections.contains { $0.appBundleIDs != nil }) {
+      throw TemplateError.invalid("This backup contains newer features but declares version 1.")
+    }
+  }
 }
 
 enum LibraryValidation {
@@ -57,6 +83,7 @@ enum LibraryValidation {
         throw TemplateError.invalid("The keyword ‘\(snippet.keyword)’ is already in use.")
       }
     }
+    if snippet.isComposition { return }
     let parsed = try TemplateParser.parse(snippet.template)
     try TemplateResolver.validateCursorMapping(snippet, parsed: parsed)
     guard !snippet.template.isEmpty else { throw TemplateError.invalid("Add some template text.") }
@@ -78,11 +105,16 @@ enum LibraryValidation {
   }
 
   static func validateImport(_ archive: LibraryArchive, existing: LibraryArchive) throws {
-    guard archive.version == 1 else {
+    guard [1, 2].contains(archive.version) else {
       throw TemplateError.invalid("This backup version is not supported.")
     }
     let collections = existing.collections + archive.collections
-    let snippets = existing.snippets + archive.snippets
+    guard !archive.snippets.contains(where: \.isComposition) else {
+      throw TemplateError.invalid("Compositions must be stored in the compositions section.")
+    }
+    let snippets =
+      existing.snippets + existing.compositions.map(\.item)
+      + archive.snippets + archive.compositions.map(\.item)
     guard Set(collections.map(\.id)).count == collections.count,
       Set(snippets.map(\.id)).count == snippets.count
     else {
@@ -95,8 +127,11 @@ enum LibraryValidation {
     where collection.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       throw TemplateError.invalid("A collection in this backup has no name (\(collection.id)).")
     }
-    for snippet in archive.snippets {
-      try validate(snippet, among: snippets)
+    let library = ExpansionLibrary(items: snippets, collections: collections)
+    for collection in archive.collections { try library.validateCollection(collection) }
+    for snippet in archive.snippets + archive.compositions.map(\.item) {
+      try library.validateContent(snippet)
+      try library.validateKeyword(snippet)
       if let id = snippet.collectionID, !collectionIDs.contains(id) {
         throw TemplateError.invalid("‘\(snippet.name)’ refers to a missing collection.")
       }

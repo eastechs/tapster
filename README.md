@@ -9,6 +9,7 @@ A native macOS snippet manager and text expander built with SwiftUI, AppKit, and
 Source code is available under the [MIT license](LICENSE). The Textend name and
 artwork are reserved; see [TRADEMARK.md](TRADEMARK.md). Sparkle's license and
 third-party notices are included in [Sparkle-LICENSE.txt](Textend/Resources/Sparkle-LICENSE.txt).
+KeyboardShortcuts is included under its [MIT license](Textend/Resources/KeyboardShortcuts-LICENSE.txt).
 External code contributions are currently closed and pull requests are disabled.
 [Bug reports and feature requests](https://github.com/eastechs/textend/issues) are
 welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -23,17 +24,23 @@ Open `Textend.xcodeproj`, select the Textend scheme, and run, or use:
 
 The Codex Run action uses the same script. It supports `--build-only`, `--verify`, `--debug`, `--logs`, and `--telemetry`.
 
-The checked-in project and scripts target Eastechs' provisioned CloudKit identity.
-The script requires a matching Apple Development certificate and CloudKit
-development profile; it does not fall back to ad-hoc signing. See
-[iCloud provisioning](docs/icloud-sync.md). The application is built at
-`build/Build/Products/Debug/Textend.app`. Local development signing does not
-produce a notarized release.
+Debug builds run as **Textend Dev** (`chat.eastechs.textend.debug`), with their own
+settings, local library, and Accessibility permission. Production Textend retains
+its existing identity and data. The development app is built at
+`build/Build/Products/Debug/Textend Dev.app`.
+
+The checked-in project and scripts use Eastechs' CloudKit configuration. They
+require a matching Apple Development certificate and development profile, with
+no ad hoc fallback. For initial setup, sign in to Xcode Settings → Accounts and
+run `./script/build_and_run.sh --setup-development-signing`. See
+[iCloud provisioning](docs/icloud-sync.md) for profile renewal and two-Mac testing.
+Local development signing does not produce a notarized release.
 
 For an independent build, configure your own Apple Developer team, bundle ID,
 CloudKit container, and provisioning profiles in Xcode. Update the corresponding
 identifiers in `Config/CloudKit.entitlements`,
-`Textend/Services/SyncConfiguration.swift`, and `script/provisioning.py` if using
+`Textend/Core/BuildIdentity.swift`, `Textend/Services/SyncConfiguration.swift`, and
+`script/provisioning.py` if using
 the scripts. Distributed forks also need their own branding, release configuration
 in `script/release.py`, and Sparkle update feed/key in `Config/Updates.xcconfig`;
 do not ship a fork pointing to Textend's
@@ -47,7 +54,11 @@ Save before trying a keyword. Templates insert literal text; Textend never execu
 
 Enable expansion in Settings and allow Accessibility when macOS asks. Accessibility covers both keyboard monitoring and insertion for Textend's active event tap; a separate Input Monitoring grant is not needed. The menu bar can pause or resume expansion, and closing the library window keeps Textend running. Launch at login is optional.
 
-If an older development build was authorized before changing its signing identity, macOS may still show the app enabled while rejecting the current app. Remove the old entry from Accessibility, add the current `build/Build/Products/Debug/Textend.app`, and enable it again. The build script uses the provisioned Apple Development identity to preserve identity across rebuilds.
+Enable the separate **Textend Dev** entry in Accessibility once when testing a
+development build. Keep the installed **Textend** entry enabled for production.
+The build script retains the same development bundle identity and signing
+certificate requirements across rebuilds; switching between development and
+production no longer replaces a shared permission entry.
 
 For overlapping keywords such as `gc` and `gco`, Textend waits 250 ms after an ambiguous exact match. Tune this under Settings → General → Expansion, from 100 to 1,000 ms. Unambiguous matches expand immediately. Continuing into an incomplete or unrelated keyword cancels the pending shorter match and retains typed text.
 

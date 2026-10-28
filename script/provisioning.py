@@ -12,8 +12,10 @@ import uuid
 
 TEAM = "VK288Z42NG"
 BUNDLE = "chat.eastechs.tapster"
+DEVELOPMENT_BUNDLE = "chat.eastechs.textend.debug"
+BUNDLES = {"development": DEVELOPMENT_BUNDLE, "release": BUNDLE}
 CONTAINER = "iCloud.chat.eastechs.tapster"
-NAMES = {"development": "Textend CloudKit Development", "release": "Textend CloudKit Developer ID"}
+NAMES = {"development": "Textend Dev CloudKit Development", "release": "Textend CloudKit Developer ID"}
 
 
 def profile_folders():
@@ -71,7 +73,7 @@ def validate_profile(profile, kind, now=None):
         environments = [environments]
     services = entitlements.get("com.apple.developer.icloud-services", [])
     if (profile.get("TeamIdentifier") != [TEAM]
-            or entitlements.get("com.apple.application-identifier") != f"{TEAM}.{BUNDLE}"
+            or entitlements.get("com.apple.application-identifier") != f"{TEAM}.{BUNDLES[kind]}"
             or CONTAINER not in entitlements.get("com.apple.developer.icloud-container-identifiers", [])
             or (services != "*" and "CloudKit" not in services)
             or expected_environment not in environments
@@ -80,6 +82,31 @@ def validate_profile(profile, kind, now=None):
         raise RuntimeError("Textend provisioning has expired or does not match its team, app, CloudKit container, and environment.")
     if kind == "release" and not profile.get("ProvisionsAllDevices"):
         raise RuntimeError("Release requires a Developer ID profile valid for all devices.")
+
+
+def signing_style(profile):
+    return "Automatic" if profile.get("IsXcodeManaged") else "Manual"
+
+
+def validate_built_app(app, kind):
+    app = pathlib.Path(app)
+    info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    if info.get("CFBundleIdentifier") != BUNDLES[kind]:
+        raise RuntimeError("The built app does not have the expected development/release identity.")
+    validate_profile(read_profile(app / "Contents/embedded.provisionprofile"), kind)
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True, capture_output=True)
+    result = subprocess.run(["codesign", "-d", "--entitlements", ":-", str(app)], check=True, capture_output=True)
+    entitlements = plistlib.loads(result.stdout)
+    expected = {
+        "com.apple.application-identifier": f"{TEAM}.{BUNDLES[kind]}",
+        "com.apple.developer.team-identifier": TEAM,
+        "com.apple.developer.icloud-container-identifiers": [CONTAINER],
+        "com.apple.developer.icloud-services": ["CloudKit"],
+        "com.apple.developer.icloud-container-environment": "Development" if kind == "development" else "Production",
+        "com.apple.developer.aps-environment": "development" if kind == "development" else "production",
+    }
+    if any(entitlements.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("The built app's signed CloudKit entitlements do not match its intended identity/environment.")
 
 
 def resolve_profile(kind):
@@ -91,10 +118,22 @@ def resolve_profile(kind):
             if decoded.returncode:
                 continue
             profile = plistlib.loads(decoded.stdout)
-            if profile.get("Name") == NAMES[kind]:
+            expected_app = f"{TEAM}.{BUNDLES[kind]}"
+            automatic_development = (
+                kind == "development"
+                and profile.get("Entitlements", {}).get("com.apple.application-identifier") == expected_app
+                and profile.get("Name", "").startswith("Mac Team Provisioning Profile:"))
+            if profile.get("Name") == NAMES[kind] or automatic_development:
                 candidates[profile["UUID"]] = profile
+    # A deliberately installed test profile can include additional Macs. Prefer it
+    # over Xcode's cached team profile, while keeping release lookup strict.
+    named = {key: value for key, value in candidates.items() if value.get("Name") == NAMES[kind]}
+    if named:
+        candidates = named
     if len(candidates) != 1:
-        raise RuntimeError(f"Install exactly one current '{NAMES[kind]}' profile from Apple Developer. See docs/icloud-sync.md.")
+        setup = (" Sign in to Xcode Settings > Accounts, then run "
+                 "./script/build_and_run.sh --setup-development-signing." if kind == "development" else "")
+        raise RuntimeError(f"Install exactly one current '{NAMES[kind]}' profile for {BUNDLES[kind]}.{setup} See docs/icloud-sync.md.")
     profile = next(iter(candidates.values()))
     validate_profile(profile, kind)
     identities = subprocess.run(["security", "find-identity", "-v", "-p", "codesigning"],
@@ -112,11 +151,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=NAMES)
     parser.add_argument("--install", type=pathlib.Path, help="Install a downloaded Textend profile, retaining superseded copies.")
+    parser.add_argument("--verify-app", type=pathlib.Path, help="Verify the built app identity, signature, profile, and CloudKit environment.")
     args = parser.parse_args()
     try:
         if args.install:
             install_profile(args.install, args.kind)
         profile, identity = resolve_profile(args.kind)
-        print(f"{profile['UUID']}\t{identity}\t{TEAM}")
+        if args.verify_app:
+            validate_built_app(args.verify_app, args.kind)
+        print(f"{profile['UUID']}\t{identity}\t{TEAM}\t{signing_style(profile)}")
     except (RuntimeError, subprocess.CalledProcessError, ValueError, KeyError, OSError) as error:
         parser.exit(1, f"Provisioning: {error}\n")

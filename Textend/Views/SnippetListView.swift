@@ -7,10 +7,9 @@ struct SnippetListView: View {
   var body: some View {
     let pendingSnippets = state.unsavedSnippets
     VStack(spacing: 0) {
-      TextField("Search snippets", text: $state.search)
-        .textFieldStyle(SnippetInputStyle())
-        .focused($searchFocused)
-        .accessibilityLabel("Search snippets")
+      TextField(state.scopeSearchPrompt, text: $state.search)
+        .textFieldStyle(SnippetInputStyle(focus: $searchFocused))
+        .accessibilityLabel(state.scopeSearchPrompt)
         .padding(12)
       Divider()
       List(selection: Binding(get: { state.selectedID }, set: { state.select($0) })) {
@@ -32,12 +31,12 @@ struct SnippetListView: View {
       .listStyle(.inset)
       .environment(\.defaultMinListRowHeight, 58)
       .overlay {
-        if state.filteredSnippets.isEmpty && state.draft == nil {
+        if state.filteredSnippets.isEmpty && pendingSnippets.isEmpty {
           ContentUnavailableView(
-            state.search.isEmpty ? "No Snippets" : "No Results",
-            systemImage: "text.badge.plus",
+            state.search.isEmpty ? "No \(state.scopeItemName)s" : "No Results",
+            systemImage: state.scope == .compositions ? "square.stack" : "text.badge.plus",
             description: Text(
-              state.search.isEmpty ? "Create a snippet to get started." : "Try another search."))
+              state.search.isEmpty ? state.scopeEmptyDescription : "Try another search."))
         }
       }
     }
@@ -53,6 +52,9 @@ private struct SnippetRow: View {
     HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 6) {
+          if snippet.isComposition {
+            Image(systemName: "square.stack").accessibilityLabel("Composition")
+          }
           Text(snippet.name).fontWeight(.medium).lineLimit(1)
           if snippet.isFavorite {
             Image(systemName: "star.fill").foregroundStyle(.secondary).font(.caption)
@@ -60,7 +62,11 @@ private struct SnippetRow: View {
           }
         }
         Text(
-          isUnsaved ? "Unsaved snippet" : snippet.template.replacingOccurrences(of: "\n", with: " ")
+          isUnsaved
+            ? "Unsaved"
+            : snippet.isComposition
+              ? "\(snippet.blocks?.count ?? 0) blocks"
+              : snippet.template.replacingOccurrences(of: "\n", with: " ")
         )
         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
       }
@@ -103,6 +109,8 @@ private struct SnippetContextMenu: View {
       }
     }
     Divider()
-    Button("Delete Snippet", role: .destructive) { state.delete(snippet) }
+    Button(snippet.isComposition ? "Delete Composition" : "Delete Snippet", role: .destructive) {
+      state.delete(snippet)
+    }
   }
 }

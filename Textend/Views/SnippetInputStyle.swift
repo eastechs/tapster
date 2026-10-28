@@ -1,15 +1,20 @@
 import SwiftUI
 
 struct SnippetInputStyle: TextFieldStyle {
-  @FocusState private var isFocused: Bool
+  private var requestedFocus: FocusState<Bool>.Binding?
+  @FocusState private var localFocus: Bool
+
+  init(focus: FocusState<Bool>.Binding? = nil) { requestedFocus = focus }
+
+  private var focus: FocusState<Bool>.Binding { requestedFocus ?? $localFocus }
 
   func _body(configuration: TextField<Self._Label>) -> some View {
     configuration
       .textFieldStyle(.plain)
-      .focused($isFocused)
+      .focused(focus)
       .padding(.horizontal, 12)
       .padding(.vertical, 10)
-      .snippetInputSurface(isFocused: isFocused)
+      .snippetInputSurface(isFocused: focus.wrappedValue)
   }
 }
 

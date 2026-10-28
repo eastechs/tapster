@@ -5,7 +5,7 @@ import SwiftData
 enum CloudSchemaInitializer {
   #if DEBUG
     @MainActor static func initialize(at url: URL) async throws {
-      guard let model = NSManagedObjectModel.makeManagedObjectModel(for: TextendSchemaV2.models)
+      guard let model = NSManagedObjectModel.makeManagedObjectModel(for: TextendSchemaV3.models)
       else {
         throw TemplateError.invalid("Couldn’t create the CloudKit development schema.")
       }

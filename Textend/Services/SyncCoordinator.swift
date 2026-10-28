@@ -69,7 +69,7 @@ import Observation
       url,
       isActive && !hasRecovery ? SyncConfiguration.containerIdentifier : nil)
     if hasRecovery {
-      if library.snippets.isEmpty && library.collections.isEmpty {
+      if library.items.isEmpty && library.collections.isEmpty {
         try library.importRecovery(Data(contentsOf: recovery))
       }
       isActive = false

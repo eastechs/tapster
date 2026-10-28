@@ -27,7 +27,7 @@ extension AppState {
   func confirmUnsavedChanges() -> Bool {
     guard isDirty else { return true }
     let alert = NSAlert()
-    alert.messageText = "Save changes to this snippet?"
+    alert.messageText = "Save changes to this item?"
     alert.informativeText = "Your changes have not been saved."
     alert.addButton(withTitle: "Save")
     alert.addButton(withTitle: "Discard Changes")

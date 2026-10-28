@@ -8,6 +8,36 @@ import Carbon
     var bundleID: String?
   }
 
+  struct Snapshot {
+    let target: ExpansionTarget
+    let bundleID: String?
+    let element: AXUIElement
+    let selection: CFRange
+  }
+
+  func capture() -> Snapshot? {
+    guard let target = currentTarget(), let element = focusedElement,
+      let selection = selectionRange(),
+      let role = attribute(element, kAXRoleAttribute) as? String,
+      [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole].contains(role),
+      attribute(element, kAXEnabledAttribute) as? Bool != false
+    else { return nil }
+    return Snapshot(
+      target: target, bundleID: application()?.bundleID, element: element, selection: selection)
+  }
+
+  func matches(_ snapshot: Snapshot, selection: Bool) -> Bool {
+    guard currentTarget() == snapshot.target, let element = focusedElement,
+      CFEqual(element, snapshot.element)
+    else { return false }
+    if selection {
+      guard let range = selectionRange() else { return false }
+      return range.location == snapshot.selection.location
+        && range.length == snapshot.selection.length
+    }
+    return true
+  }
+
   private let application: @MainActor () -> Application?
   private let attribute: @MainActor (AXUIElement, String) -> CFTypeRef?
   private let ownBundleID: String?
@@ -48,7 +78,9 @@ import Carbon
     let element = elementAttribute(app, kAXFocusedUIElementAttribute)
     focusedElement = element
     if let element { AXUIElementSetMessagingTimeout(element, 0.015) }
-    if let ownBundleID, application.bundleID == ownBundleID {
+    if let bundleID = application.bundleID,
+      bundleID == ownBundleID || BuildIdentity.applicationBundleIDs.contains(bundleID)
+    {
       guard let element,
         attribute(element, kAXIdentifierAttribute) as? String == "textend-expansion-test"
       else { return nil }
@@ -109,11 +141,8 @@ import Carbon
 
   func selectionRange() -> CFRange? {
     guard let element = focusedElement else { return nil }
-    var rawRange: CFTypeRef?
-    guard
-      AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rawRange)
-        == .success,
-      let rawRange, CFGetTypeID(rawRange) == AXValueGetTypeID()
+    guard let rawRange = attribute(element, kAXSelectedTextRangeAttribute),
+      CFGetTypeID(rawRange) == AXValueGetTypeID()
     else { return nil }
     var range = CFRange()
     guard AXValueGetValue(rawRange as! AXValue, .cfRange, &range),

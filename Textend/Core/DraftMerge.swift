@@ -10,6 +10,7 @@ extension SnippetRecord {
     if isFavorite != baseline.isFavorite { result.isFavorite = isFavorite }
     if isEnabled != baseline.isEnabled { result.isEnabled = isEnabled }
     if placeholders != baseline.placeholders { result.placeholders = placeholders }
+    if blocks != baseline.blocks { result.blocks = blocks }
     return result
   }
 }

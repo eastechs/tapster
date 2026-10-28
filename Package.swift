@@ -9,7 +9,8 @@ let package = Package(
     .target(
       name: "TextendCore", path: "Textend",
       exclude: [
-        "App/TextendApp.swift", "App/UpdaterService.swift", "Support", "Views", "Resources",
+        "App/QuickAccessController.swift", "App/TextendApp.swift", "App/UpdaterService.swift",
+        "Support", "Views", "Resources",
       ],
       sources: [
         "Core", "Models", "Stores", "Services", "App/AppState.swift",

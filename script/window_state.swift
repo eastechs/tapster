@@ -8,7 +8,9 @@ func snapshot() -> String {
   let windows =
     CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
   return NSWorkspace.shared.runningApplications
-    .filter { $0.bundleIdentifier == "chat.eastechs.tapster" }
+    .filter {
+      ["chat.eastechs.tapster", "chat.eastechs.textend.debug"].contains($0.bundleIdentifier ?? "")
+    }
     .map { app in
       let visible = windows.filter {
         ($0[kCGWindowOwnerPID as String] as? Int32) == app.processIdentifier

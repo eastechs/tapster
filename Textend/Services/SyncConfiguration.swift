@@ -53,10 +53,8 @@ struct SyncConfiguration: Codable, Equatable {
     var url = try FileManager.default.url(
       for: .applicationSupportDirectory, in: .userDomainMask,
       appropriateFor: nil, create: true
-    ).appendingPathComponent("chat.eastechs.tapster")
-    #if DEBUG
-      url.appendPathComponent("Development")
-    #else
+    ).appendingPathComponent(BuildIdentity.bundleID)
+    #if !DEBUG
       if ProcessInfo.processInfo.arguments.contains("--sync-preview") {
         url.appendPathComponent("ProductionPreview")
       }

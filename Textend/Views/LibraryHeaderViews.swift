@@ -1,14 +1,29 @@
 import SwiftUI
 
 extension AppState {
-  var unsavedSnippets: [SnippetRecord] {
-    guard let draft, !store.snippets.contains(where: { $0.id == draft.id }) else { return [] }
-    return [draft]
+  var scopeItemName: String {
+    switch scope {
+    case .all: "Snippet"
+    case .compositions: "Composition"
+    case .favorites, .collection: "Item"
+    }
+  }
+
+  var scopeSearchPrompt: String { "Search \(scopeItemName.lowercased())s" }
+
+  var scopeEmptyDescription: String {
+    switch scope {
+    case .all: "Create a snippet to get started."
+    case .compositions: "Create a Composition to get started."
+    case .favorites: "Mark a snippet or Composition as a favorite."
+    case .collection: "Add a snippet or Composition to this collection."
+    }
   }
 
   var scopeTitle: String {
     switch scope {
     case .all: "All Snippets"
+    case .compositions: "Compositions"
     case .favorites: "Favorites"
     case .collection(let id): store.collections.first(where: { $0.id == id })?.name ?? "Collection"
     }
@@ -22,7 +37,7 @@ struct LibraryHeaderView: View {
     let count = state.unsavedSnippets.count + state.filteredSnippets.count
     VStack(alignment: .leading, spacing: 2) {
       Text(state.scopeTitle).font(.headline).lineLimit(1).help(state.scopeTitle)
-      Text("\(count) \(count == 1 ? "Snippet" : "Snippets")")
+      Text("\(count) \(state.scopeItemName)\(count == 1 ? "" : "s")")
         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,11 +55,11 @@ struct SnippetSortMenu: View {
         }
       }
     } label: {
-      Image(systemName: "arrow.up.arrow.down")
+      Image(systemName: "arrow.up.arrow.down").controlHitArea(minHeight: 36)
     }
     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-    .help("Sort snippets: \(state.sortOrder.title)")
-    .accessibilityLabel("Sort snippets")
+    .help("Sort \(state.scopeItemName.lowercased())s: \(state.sortOrder.title)")
+    .accessibilityLabel("Sort \(state.scopeItemName.lowercased())s")
     .accessibilityValue(state.sortOrder.title)
   }
 }
@@ -56,7 +71,7 @@ struct SnippetHeaderView: View {
     HStack(spacing: 8) {
       if let draft = state.draft {
         Toggle(isOn: state.editorBinding(for: draft).isFavorite) {
-          Image(systemName: draft.isFavorite ? "star.fill" : "star")
+          Image(systemName: draft.isFavorite ? "star.fill" : "star").controlHitArea()
         }
         .toggleStyle(.button).buttonStyle(.borderless).fixedSize()
         .help("Favorite snippet").accessibilityLabel("Favorite snippet")

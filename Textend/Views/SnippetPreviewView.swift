@@ -6,7 +6,8 @@ struct SnippetPreviewView: View {
   @Environment(\.textendAccent) private var accent
 
   var body: some View {
-    let result = try? TemplateResolver.resolveExpansion(draft, clipboard: state.sampleClipboard)
+    let result = try? state.store.libraryForDraft(draft).resolve(
+      draft, clipboard: state.sampleClipboard)
     let unresolvedMessage =
       state.copyError == nil && state.sampleClipboard.isEmpty
       ? "Enter sample clipboard text to preview."

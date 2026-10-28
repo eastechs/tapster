@@ -32,7 +32,7 @@ final class SyncStoreTests: XCTestCase {
     let store = try LibraryStore(url: url)
     XCTAssertEqual(store.snippets, [record])
     XCTAssertEqual(store.collections, [collection])
-    let backup = url.appendingPathExtension("pre-v2.sqlite")
+    let backup = url.appendingPathExtension("pre-v3.sqlite")
     XCTAssertTrue(FileManager.default.fileExists(atPath: backup.path))
     let schema = Schema(versionedSchema: TextendSchemaV1.self)
     let old = try ModelContainer(
@@ -52,7 +52,7 @@ final class SyncStoreTests: XCTestCase {
     let first = SnippetRecord(name: "First", keyword: "gc", template: "Original")
     try store.save(first)
     let state = AppState(store: store, startEngine: false)
-    let schema = Schema(versionedSchema: TextendSchemaV2.self)
+    let schema = Schema(versionedSchema: TextendSchemaV3.self)
     let remote = try ModelContainer(
       for: schema,
       configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
@@ -105,7 +105,7 @@ final class SyncStoreTests: XCTestCase {
     let directory = try folder()
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appendingPathComponent("Library.store")
-    let schema = Schema(versionedSchema: TextendSchemaV2.self)
+    let schema = Schema(versionedSchema: TextendSchemaV3.self)
     func writeDuplicates() throws {
       let container = try ModelContainer(
         for: schema,
@@ -141,7 +141,7 @@ final class SyncStoreTests: XCTestCase {
     let directory = try folder()
     defer { try? FileManager.default.removeItem(at: directory) }
     let url = directory.appendingPathComponent("Library.store")
-    let schema = Schema(versionedSchema: TextendSchemaV2.self)
+    let schema = Schema(versionedSchema: TextendSchemaV3.self)
     let remote = try ModelContainer(
       for: schema,
       configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
@@ -164,7 +164,8 @@ final class SyncStoreTests: XCTestCase {
     var repaired = try XCTUnwrap(store.snippets.first)
     repaired.name = "Repaired"
     try store.save(repaired)
-    XCTAssertEqual(store.expansionSnippets.count, 1)
+    // Missing collection fails closed until it arrives.
+    XCTAssertTrue(store.expansionSnippets.isEmpty)
     context.insert(SavedCollection(collection))
     try context.save()
     try store.reload()

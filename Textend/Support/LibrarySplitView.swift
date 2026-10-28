@@ -5,6 +5,7 @@ import SwiftUI
 struct LibrarySplitView: NSViewControllerRepresentable {
   var state: AppState
   var canSave: Bool
+  @Environment(\.textendAccent) private var accent
 
   func makeNSViewController(context: Context) -> PinnedContentController<LibrarySplitController> {
     PinnedContentController(content: LibrarySplitController(state: state))
@@ -14,6 +15,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
     _ controller: PinnedContentController<LibrarySplitController>, context: Context
   ) {
     controller.content.saveItem.isEnabled = canSave
+    controller.content.newItemButton.contentTintColor = accent.nsColor
   }
 
   func sizeThatFits(
@@ -31,6 +33,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
 @MainActor final class LibrarySplitController: NSSplitViewController, NSToolbarDelegate {
   private let state: AppState
   let saveItem: SaveSnippetToolbarItem
+  let newItemButton = NSPopUpButton(frame: .zero, pullsDown: true)
   private var libraryToolbar: NSToolbar?
   private static let sidebarDivider = NSToolbarItem.Identifier("textend.sidebarDivider")
   private static let listDivider = NSToolbarItem.Identifier("textend.listDivider")
@@ -44,6 +47,20 @@ struct LibrarySplitView: NSViewControllerRepresentable {
     self.state = state
     saveItem = SaveSnippetToolbarItem(identifier: Self.saveSnippet, state: state)
     super.init(nibName: nil, bundle: nil)
+    newItemButton.bezelStyle = .texturedRounded
+    newItemButton.imagePosition = .imageOnly
+    newItemButton.addItem(withTitle: "New")
+    newItemButton.item(at: 0)?.image = NSImage(
+      systemSymbolName: "square.and.pencil", accessibilityDescription: nil)
+    for (title, action) in [
+      ("New Snippet", #selector(newSnippet)), ("New Composition", #selector(newComposition)),
+    ] {
+      let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+      item.target = self
+      newItemButton.menu?.addItem(item)
+    }
+    newItemButton.widthAnchor.constraint(equalToConstant: 56).isActive = true
+    newItemButton.setAccessibilityLabel("New Snippet or Composition")
   }
 
   required init?(coder: NSCoder) { fatalError("Use init(state:)") }
@@ -139,7 +156,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
         minimum: 40, preferred: 120, maximum: 240)
     case Self.snippetSort:
       return hostedItem(
-        identifier, label: "Sort snippets", content: SnippetSortMenu(state: state),
+        identifier, label: "Sort", content: SnippetSortMenu(state: state),
         minimum: 24, preferred: 24, maximum: 24)
     case Self.snippetTitle:
       return hostedItem(
@@ -148,7 +165,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
     case Self.saveSnippet:
       let item = saveItem
       item.label = "Save"
-      item.toolTip = "Save Snippet (⌘S)"
+      item.toolTip = "Save (⌘S)"
       let saveButton = NSButton(title: "Save", target: nil, action: nil)
       saveButton.bezelStyle = .texturedRounded
       saveButton.target = self
@@ -160,12 +177,9 @@ struct LibrarySplitView: NSViewControllerRepresentable {
       return item
     case Self.newSnippet:
       let item = NSToolbarItem(itemIdentifier: identifier)
-      item.label = "New Snippet"
-      item.toolTip = "New Snippet (⌘N)"
-      item.image = NSImage(
-        systemSymbolName: "square.and.pencil", accessibilityDescription: "New Snippet")
-      item.target = self
-      item.action = #selector(newSnippet)
+      item.label = "New"
+      item.toolTip = "New Snippet or Composition"
+      item.view = newItemButton
       item.visibilityPriority = .high
       return item
     case .toggleSidebar:
@@ -199,6 +213,7 @@ struct LibrarySplitView: NSViewControllerRepresentable {
   }
 
   @objc private func newSnippet() { state.newSnippet() }
+  @objc private func newComposition() { state.newComposition() }
   @objc private func save() { state.save() }
 }
 

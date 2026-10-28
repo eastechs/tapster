@@ -20,6 +20,81 @@ struct HelpTopic: Identifiable {
 
   static let all: [HelpTopic] = [
     HelpTopic(
+      id: "quick-access", title: "Quick Access", symbol: "magnifyingglass",
+      summary: "Find and insert saved snippets and Compositions without opening the library.",
+      sections: [
+        Section(
+          title: "Open and configure",
+          body:
+            "Press ⇧⌘Space, or choose Quick Access from Textend’s menu bar menu. Change, clear, or restore the shortcut in Settings → General → Quick Access. The shortcut stays on this Mac. The recorder warns about known conflicts, but cannot detect every shortcut used by another app."
+        ),
+        Section(
+          title: "Choose and insert",
+          body:
+            "Search names, keywords, collection names, and content. Favorites appear first. Use arrow keys to choose, Return to insert, Command-Return to copy, and Escape to close. Current App shows eligible items; All Snippets also lets you browse and copy items restricted to other apps."
+        ),
+        Section(
+          title: "Destination and clipboard",
+          body:
+            "Quick Access captures the original field, selection, and clipboard when opened. Insertion replaces that selection or uses its caret. If Textend cannot verify the field or Accessibility permission is unavailable, use Copy. Moving to another app cancels the palette. Excluded apps and secure fields cannot receive insertions. Date values resolve when you confirm; copying never positions the caret."
+        ),
+        Section(
+          title: "Paused or manual-only items",
+          body:
+            "Quick Access can insert valid items with no keyword, with automatic expansion disabled, or while global automatic expansion is paused. App restrictions still apply. Textend does not execute commands or press Return to submit inserted text."
+        ),
+      ]),
+    HelpTopic(
+      id: "app-collections", title: "App-Specific Collections", symbol: "app.badge",
+      summary: "Make a collection available in selected applications.",
+      sections: [
+        Section(
+          title: "Choose applications",
+          body:
+            "Create or edit a collection and choose All Apps or Selected Apps. Add one or more applications. Every member inherits these restrictions. Missing apps on another Mac retain their restrictions. Uncollected items are global."
+        ),
+        Section(
+          title: "Keyword precedence",
+          body:
+            "An enabled, valid app-specific item overrides a global item with the same keyword in its selected apps. Disjoint app scopes may reuse keywords. Two app-specific items with overlapping scopes conflict in those apps, with no global fallback. Local edits reject new conflicts; remote conflicts pause affected expansions until resolved."
+        ),
+        Section(
+          title: "Sync and deletion",
+          body:
+            "Restrictions sync through iCloud. Update every synced Mac before using them because older Textend versions cannot enforce restrictions. Deleting a restricted collection retains its items and makes them global; new conflicts pause automatic expansion. A missing collection blocks insertion until it arrives, while valid content can still be copied."
+        ),
+      ]),
+    HelpTopic(
+      id: "compositions", title: "Compositions", symbol: "square.stack",
+      summary: "Arrange live snippets and literal text into one expansion.",
+      sections: [
+        Section(
+          title: "Create a Composition",
+          body:
+            "Browse Compositions in their sidebar section below All Snippets. Choose New Composition from File or the toolbar’s New menu. Add snippets using the searchable picker, or add literal text. Reorder blocks by dragging their handles or using Move Up and Move Down. Choose None, Space, New Line, or Blank Line between blocks. New Line is the default."
+        ),
+        Section(
+          title: "Live sources",
+          body:
+            "Source edits automatically update every Composition that references them. Disabled source keywords do not disable their reusable content. Compositions cannot contain other Compositions. Deleting a source leaves a broken reference; remove the block or replace it by adding a different snippet. No partial expansion is inserted."
+        ),
+        Section(
+          title: "Placeholders and cursor",
+          body:
+            "Each source uses its own placeholder mappings with one clipboard snapshot and date/time for the entire result. Literal blocks are inserted exactly as written, including braces. Only one cursor marker is allowed across all source occurrences. The preview uses sample clipboard text; Copy Expanded Text uses your current clipboard."
+        ),
+        Section(
+          title: "Availability and sync",
+          body:
+            "A Composition is available only in apps permitted by its own collection and every source snippet. Its editor shows the resulting availability. Conflicting restrictions prevent insertion, but valid content remains copyable. Compositions, order, separators, and source references sync. Older Textend versions do not display Compositions."
+        ),
+        Section(
+          title: "Backups",
+          body:
+            "Version 2 backups include Compositions and their referenced snippets, plus collection app restrictions. Textend still imports version 1 backups. Older versions reject the newer backup format instead of silently removing features."
+        ),
+      ]),
+    HelpTopic(
       id: "icloud", title: "iCloud Sync", symbol: "icloud",
       summary: "Sync your saved library between Macs using your iCloud account.",
       sections: [
@@ -31,7 +106,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "What syncs",
           body:
-            "Saved snippets, collections, favorites, enabled states, and placeholder mappings sync. Appearance, expansion delay, excluded applications, permissions, clipboard contents, and unsaved drafts stay on each Mac."
+            "Saved snippets, Compositions, collection app restrictions, favorites, enabled states, and placeholder mappings sync. Appearance, expansion delay, excluded applications, permissions, clipboard contents, and unsaved drafts stay on each Mac."
         ),
         Section(
           title: "Offline and activity",
@@ -41,7 +116,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Conflicts",
           body:
-            "CloudKit merges saved edits automatically. Concurrent edits to the same field may overwrite one another. Duplicate keywords pause expansion for all affected snippets until you rename or clear a keyword. You can still copy a valid snippet manually. If a saved snippet changes while you have a draft, saving applies your changed fields while retaining remote changes to untouched fields. A remotely deleted draft can be saved as a new snippet."
+            "CloudKit merges saved edits automatically. Concurrent edits to the same field may overwrite one another. Duplicate keywords within overlapping scopes pause affected automatic expansions until you rename or clear a keyword. You can still copy a valid snippet manually. If a saved snippet changes while you have a draft, saving applies your changed fields while retaining remote changes to untouched fields. A remotely deleted draft can be saved as a new snippet."
         ),
         Section(
           title: "Turn off or change accounts",
@@ -51,7 +126,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Backups",
           body:
-            "Use File → Export Backup for a portable JSON copy. Sync is not a substitute for a backup because deletions also sync. Before the V2 migration, Textend creates a local SQLite backup beside its library."
+            "Use File → Export Backup for a portable JSON copy. Sync is not a substitute for a backup because deletions also sync. Before the V3 migration, Textend creates a local SQLite backup beside its library."
         ),
       ]),
     HelpTopic(

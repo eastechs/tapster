@@ -22,6 +22,9 @@ import Observation
       cancel()
     }
   }
+  private(set) var library = ExpansionLibrary()
+  private var indexedBundleID: String?
+  private(set) var paletteIsOpen = false
   private var tracking = ExpansionTracking()
   private let focus = FocusService()
   @ObservationIgnored private lazy var insertion = TextInsertionService(
@@ -68,8 +71,11 @@ import Observation
     updateDelay(preferences.object(forKey: "debounceMilliseconds") as? Int ?? 250)
   }
 
-  func start() {
+  func start(initiallyPaused: Bool = false) {
     guard !isStarted else { return }
+    // Preview launches pause this session without changing the saved preference.
+    // Keep the lifecycle running so Resume can install monitoring normally.
+    if initiallyPaused { isEnabled = false }
     isStarted = true
     for name in [
       NSWorkspace.didActivateApplicationNotification, NSWorkspace.willSleepNotification,
@@ -94,7 +100,7 @@ import Observation
 
   private func workspaceChanged(_ name: Notification.Name) {
     guard isStarted else { return }
-    cancel()
+    rebuildIndex()
     switch name {
     case NSWorkspace.willSleepNotification:
       isSleeping = true
@@ -116,8 +122,50 @@ import Observation
   }
 
   func updateSnippets(_ snippets: [SnippetRecord]) {
+    updateLibrary(ExpansionLibrary(items: snippets))
+  }
+
+  func updateLibrary(_ library: ExpansionLibrary) {
+    self.library = library
+    rebuildIndex()
+  }
+
+  private func rebuildIndex() {
     cancel()
-    tracking.matcher.update(snippets)
+    indexedBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+    tracking.matcher.update(library.automaticItems(in: indexedBundleID))
+  }
+
+  func setPaletteOpen(_ value: Bool) {
+    cancel()
+    paletteIsOpen = value
+  }
+
+  func captureInsertionTarget() -> FocusService.Snapshot? {
+    guard accessibility(), postEventAccess(), !secureInput(), !insertion.isBusy,
+      let app = NSWorkspace.shared.frontmostApplication,
+      !excludedBundleIDs.contains(app.bundleIdentifier ?? "")
+    else { return nil }
+    return focus.capture()
+  }
+
+  func insertManually(_ expansion: ResolvedExpansion, itemID: UUID, target: FocusService.Snapshot)
+    throws
+  {
+    guard accessibility(), postEventAccess(), !secureInput(), supportsInputSource(),
+      !excludedBundleIDs.contains(target.bundleID ?? ""),
+      let item = library.items.first(where: { $0.id == itemID }),
+      library.allows(item, in: target.bundleID),
+      focus.matches(target, selection: true)
+    else {
+      throw TemplateError.invalid(
+        "Insertion cancelled. Return to the original field and open Quick Access again.")
+    }
+    try library.validateContent(item)
+    try insertion.insert(expansion, target: target.target, selection: target.selection) {
+      [weak self] in
+      self?.focus.matches(target, selection: false) == true
+    }
   }
   func updateDelay(_ milliseconds: Int) {
     cancel()
@@ -247,7 +295,7 @@ import Observation
       return
     }
     let code = event.getIntegerValueField(.keyboardEventKeycode)
-    guard status == .active, !insertion.isBusy, !secureInput(),
+    guard !paletteIsOpen, status == .active, !insertion.isBusy, !secureInput(),
       !event.flags.contains(.maskCommand), !event.flags.contains(.maskControl),
       !event.flags.contains(.maskAlternate),
       event.getIntegerValueField(.keyboardEventAutorepeat) == 0 || code == 51,
@@ -258,6 +306,7 @@ import Observation
       cancel()
       return
     }
+    if indexedBundleID != app.bundleIdentifier { rebuildIndex() }
     if code == 51 {
       timer?.invalidate()
       timer = nil
@@ -309,7 +358,7 @@ import Observation
   }
 
   private func expand(_ match: TriggerMatch, target: ExpansionTarget, attempt: Int = 0) {
-    guard status == .active, !secureInput(),
+    guard !paletteIsOpen, status == .active, !secureInput(),
       accessibility(), postEventAccess(), focus.currentTarget() == target,
       match.generation == tracking.matcher.generation
     else { return }
@@ -348,8 +397,14 @@ import Observation
     }
     defer { tracking.reset() }
     do {
-      try ExpansionTransaction.perform(
-        snippet, target: target, clipboard: insertion, focus: focus, insertion: insertion)
+      let result = try library.resolve(
+        snippet, clipboard: library.needsClipboard(snippet) ? insertion.readText() : nil)
+      guard focus.currentTarget() == target,
+        library.allows(snippet, in: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+      else { return }
+      try insertion.replace(
+        keyword: snippet.keyword, with: result.text, target: target,
+        cursorUTF16Offset: result.cursorUTF16Offset)
       ExpansionDiagnostics.record("Expansion events posted", processID: target.processID)
       lastMessage = nil
     } catch { lastMessage = error.localizedDescription }
