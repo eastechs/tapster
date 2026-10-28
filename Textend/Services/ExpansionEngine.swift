@@ -8,6 +8,7 @@ import Observation
     case permission = "Permission required"
     case secure = "Secure input unavailable"
     case composition = "Input method unavailable"
+    case unavailable = "Reconnecting expansion"
     case active = "Expansion active"
   }
 
@@ -17,7 +18,7 @@ import Observation
   private(set) var accessibilityGranted = false
   var excludedBundleIDs: [String] {
     didSet {
-      UserDefaults.standard.set(excludedBundleIDs, forKey: "excludedBundleIDs")
+      preferences.set(excludedBundleIDs, forKey: "excludedBundleIDs")
       cancel()
     }
   }
@@ -25,34 +26,91 @@ import Observation
   private let focus = FocusService()
   @ObservationIgnored private lazy var insertion = TextInsertionService(
     focus: focus, cursorFailure: { [weak self] message in self?.lastMessage = message })
-  private var eventTap: CFMachPort?
-  private var runLoopSource: CFRunLoopSource?
+  private var eventTap: (any ExpansionEventTap)?
   private var timer: Timer?
   private var healthTimer: Timer?
   private var workspaceObservers: [NSObjectProtocol] = []
+  private let preferences: UserDefaults
+  private let workspaceCenter: NotificationCenter
+  private let accessibility: @MainActor () -> Bool
+  private let postEventAccess: @MainActor () -> Bool
+  private let secureInput: @MainActor () -> Bool
+  private let supportsInputSource: @MainActor () -> Bool
+  private let makeEventTap:
+    @MainActor (@escaping @MainActor (CGEventType, CGEvent) -> Void) -> (any ExpansionEventTap)?
+  private var isStarted = false
+  private var isSleeping = false
+  private var isSessionActive = true
 
-  init() {
-    isEnabled = UserDefaults.standard.bool(forKey: "expansionEnabled")
-    excludedBundleIDs = UserDefaults.standard.stringArray(forKey: "excludedBundleIDs") ?? []
-    updateDelay(UserDefaults.standard.object(forKey: "debounceMilliseconds") as? Int ?? 250)
+  init(
+    preferences: UserDefaults = .standard,
+    workspaceCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+    accessibility: @escaping @MainActor () -> Bool = { AXIsProcessTrusted() },
+    postEventAccess: @escaping @MainActor () -> Bool = { CGPreflightPostEventAccess() },
+    secureInput: @escaping @MainActor () -> Bool = { FocusService.secureInputEnabled },
+    supportsInputSource: @escaping @MainActor () -> Bool = {
+      FocusService.supportsCurrentInputSource
+    },
+    makeEventTap:
+      @escaping @MainActor (@escaping @MainActor (CGEventType, CGEvent) -> Void) -> (
+        any ExpansionEventTap
+      )? = { SystemExpansionEventTap(receive: $0) }
+  ) {
+    self.preferences = preferences
+    self.workspaceCenter = workspaceCenter
+    self.accessibility = accessibility
+    self.postEventAccess = postEventAccess
+    self.secureInput = secureInput
+    self.supportsInputSource = supportsInputSource
+    self.makeEventTap = makeEventTap
+    isEnabled = preferences.bool(forKey: "expansionEnabled")
+    excludedBundleIDs = preferences.stringArray(forKey: "excludedBundleIDs") ?? []
+    updateDelay(preferences.object(forKey: "debounceMilliseconds") as? Int ?? 250)
   }
 
   func start() {
-    let center = NSWorkspace.shared.notificationCenter
+    guard !isStarted else { return }
+    isStarted = true
     for name in [
       NSWorkspace.didActivateApplicationNotification, NSWorkspace.willSleepNotification,
-      NSWorkspace.didWakeNotification,
+      NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification,
+      NSWorkspace.sessionDidResignActiveNotification,
+      NSWorkspace.sessionDidBecomeActiveNotification,
     ] {
       workspaceObservers.append(
-        center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+        workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
           MainActor.assumeIsolated {
-            self?.cancel()
-            self?.refresh()
+            self?.workspaceChanged(name)
           }
         })
     }
-    healthTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+    let healthTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
       MainActor.assumeIsolated { self?.refresh() }
+    }
+    self.healthTimer = healthTimer
+    RunLoop.main.add(healthTimer, forMode: .common)
+    refresh()
+  }
+
+  private func workspaceChanged(_ name: Notification.Name) {
+    guard isStarted else { return }
+    cancel()
+    switch name {
+    case NSWorkspace.willSleepNotification:
+      isSleeping = true
+    case NSWorkspace.didWakeNotification:
+      isSleeping = false
+    case NSWorkspace.sessionDidResignActiveNotification:
+      isSessionActive = false
+    case NSWorkspace.sessionDidBecomeActiveNotification:
+      isSessionActive = true
+    default: break
+    }
+    if name != NSWorkspace.didActivateApplicationNotification {
+      // A tap can survive a wake/session transition but stop delivering events.
+      // Recreate it even if Core Graphics still reports it as enabled.
+      removeTap()
+      insertion.finish()
     }
     refresh()
   }
@@ -68,7 +126,7 @@ import Observation
 
   func setEnabled(_ enabled: Bool, requestPermission: Bool = false) {
     isEnabled = enabled
-    UserDefaults.standard.set(enabled, forKey: "expansionEnabled")
+    preferences.set(enabled, forKey: "expansionEnabled")
     cancel()
     if enabled && requestPermission { requestAccessibility() }
     refresh()
@@ -93,31 +151,37 @@ import Observation
   }
 
   func stop() {
+    isStarted = false
     cancel()
     healthTimer?.invalidate()
     healthTimer = nil
     for observer in workspaceObservers {
-      NSWorkspace.shared.notificationCenter.removeObserver(observer)
+      workspaceCenter.removeObserver(observer)
     }
     workspaceObservers = []
     removeTap()
     insertion.finish()
+    isSleeping = false
+    isSessionActive = true
+    status = .paused
   }
 
-  private func refresh() {
-    accessibilityGranted = AXIsProcessTrusted()
-    let newStatus: Status
-    if !isEnabled {
+  func refresh() {
+    guard isStarted else { return }
+    accessibilityGranted = accessibility()
+    var newStatus: Status
+    if !isEnabled || isSleeping || !isSessionActive {
       newStatus = .paused
-    } else if !accessibilityGranted || !CGPreflightPostEventAccess() {
+    } else if !accessibilityGranted || !postEventAccess() {
       newStatus = .permission
-    } else if FocusService.secureInputEnabled {
+    } else if secureInput() {
       newStatus = .secure
-    } else if !FocusService.supportsCurrentInputSource {
+    } else if !supportsInputSource() {
       newStatus = .composition
     } else {
       newStatus = .active
     }
+    if newStatus == .active, !ensureTap() { newStatus = .unavailable }
     if newStatus != status {
       cancel()
       status = newStatus
@@ -127,63 +191,49 @@ import Observation
       removeTap()
       return
     }
-    if let eventTap {
-      if !CGEvent.tapIsEnabled(tap: eventTap) {
-        cancel()
-        CGEvent.tapEnable(tap: eventTap, enable: true)
-      }
-    } else {
-      installTap()
-    }
     if let target = tracking.target, focus.currentTarget() != target { cancel() }
   }
 
-  private func installTap() {
-    let types: [CGEventType] = [
-      .keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel,
-    ]
-    let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-    let info = Unmanaged.passUnretained(self).toOpaque()
-    guard
-      let tap = CGEvent.tapCreate(
-        tap: .cgSessionEventTap, place: .headInsertEventTap,
-        options: .defaultTap, eventsOfInterest: mask,
-        callback: { _, type, event, info in
-          guard let info else { return Unmanaged.passUnretained(event) }
-          let engine = Unmanaged<ExpansionEngine>.fromOpaque(info).takeUnretainedValue()
-          MainActor.assumeIsolated { engine.receive(type: type, event: event) }
-          return Unmanaged.passUnretained(event)
-        }, userInfo: info)
-    else {
-      status = .permission
-      lastMessage =
-        "macOS could not monitor typing. Check Textend's Accessibility permission, then restart Textend."
-      return
+  private func ensureTap() -> Bool {
+    if let eventTap {
+      if eventTap.isValid && eventTap.isEnabled { return true }
+      cancel()
+      if eventTap.isValid {
+        eventTap.enable()
+        if eventTap.isValid && eventTap.isEnabled { return true }
+      }
+      removeTap()
     }
+    guard
+      let tap = makeEventTap({ [weak self] type, event in
+        self?.receive(type: type, event: event)
+      })
+    else { return false }
     eventTap = tap
-    let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-    runLoopSource = source
-    CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-    CGEvent.tapEnable(tap: tap, enable: true)
+    tap.enable()
+    guard tap.isValid && tap.isEnabled else {
+      removeTap()
+      return false
+    }
+    ExpansionDiagnostics.record("Keyboard listener installed", processID: 0)
+    return true
   }
 
   private func removeTap() {
-    if let runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes) }
-    if let eventTap { CFMachPortInvalidate(eventTap) }
-    runLoopSource = nil
+    eventTap?.invalidate()
     eventTap = nil
   }
 
   private func receive(type: CGEventType, event: CGEvent) {
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+      cancel()
+      eventTap?.enable()
+      return
+    }
     if event.getIntegerValueField(.eventSourceUserData) == TextInsertionService.eventMarker {
       return
     }
     if type != .flagsChanged { insertion.cancelCursorPlacement() }
-    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-      cancel()
-      if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
-      return
-    }
     if type == .flagsChanged {
       if !event.flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty
         || event.getIntegerValueField(.keyboardEventKeycode) == 57
@@ -196,7 +246,7 @@ import Observation
       cancel()
       return
     }
-    guard status == .active, !insertion.isBusy, !FocusService.secureInputEnabled,
+    guard status == .active, !insertion.isBusy, !secureInput(),
       !event.flags.contains(.maskCommand), !event.flags.contains(.maskControl),
       !event.flags.contains(.maskAlternate),
       event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
@@ -253,8 +303,8 @@ import Observation
   }
 
   private func expand(_ match: TriggerMatch, target: ExpansionTarget, attempt: Int = 0) {
-    guard status == .active, !FocusService.secureInputEnabled,
-      AXIsProcessTrusted(), CGPreflightPostEventAccess(), focus.currentTarget() == target,
+    guard status == .active, !secureInput(),
+      accessibility(), postEventAccess(), focus.currentTarget() == target,
       match.generation == tracking.matcher.generation
     else { return }
     let selection = focus.selectionRange()

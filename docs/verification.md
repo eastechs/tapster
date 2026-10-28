@@ -893,3 +893,39 @@ Acceptance gates at this initial checkpoint (subsequent results are recorded bel
 - Dave explicitly approved the public source push. Pushed the source and release
   records to `main` and the annotated `v0.2.2` tag to GitHub. Remote verification
   confirms that the tag targets the exact source revision in the release manifest.
+
+## Expansion recovery after sleep (2026-10-27)
+
+- Found a recovery gap in the keyboard listener: wake notifications only refreshed
+  the existing tap, and health checks only tried to re-enable it. An invalid port
+  or a listener that remained enabled without delivering events was never replaced.
+- Sleep and session departure now cancel pending expansion and remove the listener.
+  Wake, display wake, and session return create a fresh listener when expansion is
+  allowed. Sleep and session state are tracked separately so either can keep
+  monitoring suspended until both have finished.
+- Health checks replace invalid listeners and listeners that cannot be re-enabled.
+  Failed installation retries automatically and reports `Reconnecting expansion`
+  instead of falsely reporting active expansion or requiring an app restart.
+  The health timer also runs while macOS menus are open. Repeated start/stop calls
+  do not duplicate observers, timers, or listeners.
+- Added 12 regression tests for wake recovery, display/session transitions,
+  invalidation, disable callbacks, failed installation, and permission, pause,
+  Secure Input, and input-method restrictions. All 83 Swift tests pass (78 core,
+  5 layout). Strict Swift formatting, whitespace checks, the provisioned Debug
+  build, and deep signature verification pass. Xcode reports only the existing
+  warnings about not stripping signed Sparkle binaries.
+- Review-loop passed on its first iteration, covering the diff, expansion
+  requirements, regression tests, formatting, callback ownership, resource
+  cleanup, and sibling service conventions.
+- This verifies simulated lifecycle transitions and the development build.
+  Physical sleep/wake typing has not been tested. The running installed app is
+  still 0.2.2; no release, installation, source commit, or publication was performed.
+
+### 0.2.3 release preparation
+
+- Dave requested committing the fix and shipping an update for his installed app.
+  The live feed advertises 0.2.2 (7), so this patch uses 0.2.3 (8).
+- Full release acceptance checks pass: 83 Swift tests, 16 offline release tests,
+  5 provisioning tests, strict formatting, shell syntax, license consistency,
+  whitespace checks, and the provisioned Debug build. Review-loop rechecked the
+  cumulative diff and release notes with no remaining findings.
