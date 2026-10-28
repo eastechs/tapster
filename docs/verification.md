@@ -1263,3 +1263,30 @@ on the receiver. Fixture files and the detailed session log remain in the ignore
   full pending documentation diff, release notes, fixture validation results,
   artifact checks, and sibling release instructions. Whitespace checks passed;
   remaining native coverage is explicitly recorded. No app source changed.
+
+
+### 0.3.0 publication (2026-10-28)
+
+- Dave authorized commit, push, and publication after the signed production
+  CloudKit and native Notes/TextEdit checks. Preparation documentation was
+  committed and pushed as `c788919`.
+- Ran the existing local `script/release.py publish dist/0.3.0-9` workflow. It
+  verified the Sparkle feed/archive signatures, uploaded the immutable ZIP to
+  Spaces, downloaded it through the CDN and matched its SHA-256, then published
+  the update feed last. The command completed successfully for build 9.
+- Independently fetched the public feed: HTTP 200, version 0.3.0, build 9, and
+  exact SHA-256 match with the signed local feed. Its cache header is
+  `no-cache,max-age=0,must-revalidate`. The archive returns HTTP 200 with
+  12,831,317 bytes and `public,max-age=31536000,immutable`.
+- Created and pushed annotated tag `v0.3.0` at the manifest source revision
+  `98082485fd2d1183882a2b69af9f3502414ebdd2`, including version/build and archive
+  hash in the annotation. Independently verified its remote peeled target.
+- Live download: https://cdn.usetextend.com/macos/Textend-0.3.0-9.zip
+  Live feed: https://cdn.usetextend.com/macos/appcast.xml
+- No installed application was replaced. An actual Sparkle update to this
+  version has not yet been reported; the broader unverified native coverage
+  above remains documented. The three disposable sync records remain available.
+- The publication-note review-loop passed on iteration 1: reviewed the exact
+  documentation diff against publication output, CDN responses, manifest, tag,
+  and sibling release instructions. `git diff --check` passed. No code changes
+  required a build or test rerun.
