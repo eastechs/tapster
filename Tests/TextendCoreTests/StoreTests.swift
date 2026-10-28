@@ -47,4 +47,22 @@ final class StoreTests: XCTestCase {
     XCTAssertThrowsError(try destination.importArchive(data))
     XCTAssertEqual(destination.snippets.count, source.snippets.count)
   }
+
+  @MainActor func testBackupErrorsCanBePresentedBySettingsWithoutALibraryAlert() throws {
+    let store = try LibraryStore(inMemory: true)
+    try store.save(SnippetRecord(name: "Saved", keyword: "saved", template: "Keep me"))
+    let state = AppState(store: store, startEngine: false)
+    let archive = try store.exportArchive()
+    var settingsError: String?
+    state.perform(
+      onError: { settingsError = $0.localizedDescription },
+      { try store.importArchive(archive) })
+    XCTAssertNotNil(settingsError)
+    XCTAssertNil(state.errorMessage)
+    XCTAssertEqual(store.snippets.count, 1)
+    XCTAssertEqual(store.snippets.first?.template, "Keep me")
+
+    state.perform { try store.importArchive(archive) }
+    XCTAssertNotNil(state.errorMessage, "Menu actions still report errors in the library.")
+  }
 }

@@ -34,7 +34,16 @@ extension AppState {
     alert.addButton(withTitle: "Cancel")
     let response = alert.runModal()
     switch response {
-    case .alertFirstButtonReturn: return save()
+    case .alertFirstButtonReturn:
+      guard save() else {
+        let failure = NSAlert()
+        failure.messageText = "Couldn’t Save Changes"
+        failure.informativeText = errorMessage ?? "Your changes have not been saved."
+        errorMessage = nil
+        failure.runModal()
+        return false
+      }
+      return true
     case .alertSecondButtonReturn:
       discardDraft()
       return true

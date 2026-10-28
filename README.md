@@ -4,7 +4,7 @@
 
 A native macOS snippet manager and text expander built with SwiftUI, AppKit, and SwiftData. Requires macOS 14 or later and Xcode 27 to build the layered app icon.
 
-![Textend in Light appearance, showing collections, the snippet list, the Email Signature editor, and its expanded preview.](docs/screenshots/textend-0.2.1-light.png)
+![Textend in Light appearance, showing collections, the snippet list, the Rive Signed Build editor, and its expanded preview.](docs/screenshots/textend-library-light.png)
 
 Source code is available under the [MIT license](LICENSE). The Textend name and
 artwork are reserved; see [TRADEMARK.md](TRADEMARK.md). Sparkle's license and
@@ -64,7 +64,7 @@ For overlapping keywords such as `gc` and `gco`, Textend waits 250 ms after an a
 
 Protected input and composition input methods are excluded. Keyword detection follows physical typing within the active application and window, even when an editor omits or recreates its Accessibility elements. Clicks, navigation, shortcuts, and app/window changes cancel pending matches. In fields without readable context, matching starts with a fresh typing run; Textend cannot inspect the preceding word or detect an unreported programmatic field change in those fields. Cursor markers use relative keyboard navigation for up to 256 trailing characters, with native Accessibility positioning for longer moves. The Settings test field uses the same expansion path while the snippet editor stays excluded.
 
-Use File → Export Backup to save a versioned JSON backup. Import adds a validated backup atomically and rejects conflicting identifiers or exact duplicate keywords. Deleting a collection retains its snippets.
+Use Settings → Backups to import or export a versioned JSON backup, including when the Dock icon is hidden. These actions are also available in the File menu. Import adds a validated backup atomically and rejects conflicting identifiers or exact duplicate keywords. Deleting a collection retains its snippets.
 
 Settings → Appearance offers System, Light, and Dark modes, plus an accent color selector. Blue, Purple, Pink, Red, Orange, Yellow, Green, and Graphite use Apple's adaptive system colors. Choices update immediately and persist across launches, including selections in the library and Help. Window controls and system menus continue to use the macOS accent color.
 

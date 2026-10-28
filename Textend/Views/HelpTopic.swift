@@ -126,7 +126,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Backups",
           body:
-            "Use File → Export Backup for a portable JSON copy. Sync is not a substitute for a backup because deletions also sync. Before the V3 migration, Textend creates a local SQLite backup beside its library."
+            "Use Settings → Backups → Export Backup for a portable JSON copy. Sync is not a substitute for a backup because deletions also sync. Before the V3 migration, Textend creates a local SQLite backup beside its library."
         ),
       ]),
     HelpTopic(
@@ -151,7 +151,7 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Keep Textend available",
           body:
-            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library, access Settings, pause expansion, or quit. In Settings → General → App Behavior, turn off Show Textend in the Dock, then quit and reopen Textend. The Dock icon stays hidden even while windows are open. Changing the setting does not hide windows or interrupt editing; it takes effect on the next launch. The preference is remembered on this Mac. Launch at login is optional in the same section."
+            "Closing the library leaves Textend running in the menu bar. Use its menu to open the library, access Settings, pause expansion, or quit. In Settings → General → App Behavior, turn off Show Textend in the Dock, then choose Restart Now when prompted. Choose Not Now to apply it on a later launch. The Dock icon stays hidden even while windows are open. Changing the setting does not hide windows or interrupt editing; it takes effect on the next launch. The preference is remembered on this Mac. Launch at login is optional in the same section."
         ),
       ]),
     HelpTopic(
@@ -255,12 +255,12 @@ struct HelpTopic: Identifiable {
         Section(
           title: "Export a backup",
           body:
-            "Choose File → Export Backup to save your library as a JSON file. Store it somewhere you can find again. Textend keeps a local library. Optional iCloud sync is available in Settings → iCloud; backups remain useful when sync is enabled."
+            "Choose Settings → Backups → Export Backup to save your saved library as a JSON file. You can also use File → Export Backup when the app menu is available. Store it somewhere you can find again. Textend keeps a local library. Optional iCloud sync is available in Settings → iCloud; backups remain useful when sync is enabled."
         ),
         Section(
           title: "Import a backup",
           body:
-            "Choose File → Import Backup. Import adds the contents to your existing library. Conflicting identifiers or exact duplicate keywords reject the whole import, so a rejected backup does not partially change your library."
+            "Choose Settings → Backups → Import Backup, or use File → Import Backup when the app menu is available. Import adds the contents to your existing library. Conflicting identifiers or exact duplicate keywords reject the whole import, so a rejected backup does not partially change your library."
         ),
         Section(
           title: "Check for updates",

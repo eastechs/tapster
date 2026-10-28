@@ -355,17 +355,17 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     }
   }
 
-  func importBackup() {
-    transition { [weak self] in self?.showImportPanel() }
+  func importBackup(onError: ((Error) -> Void)? = nil) {
+    transition { [weak self] in self?.showImportPanel(onError: onError) }
   }
 
-  func exportBackup() {
+  func exportBackup(onError: ((Error) -> Void)? = nil) {
     let panel = NSSavePanel()
     panel.allowedContentTypes = [.json]
     panel.nameFieldStringValue = "Textend-backup.json"
     panel.begin { [weak self] response in
       guard response == .OK, let url = panel.url else { return }
-      self?.perform {
+      self?.perform(onError: onError) {
         guard let self else { return }
         try self.store.exportArchive().write(to: url, options: .atomic)
       }
@@ -417,20 +417,22 @@ enum SnippetSortOrder: String, CaseIterable, Identifiable {
     } catch { errorMessage = error.localizedDescription }
   }
 
-  func perform(_ action: () throws -> Void) {
+  func perform(onError: ((Error) -> Void)? = nil, _ action: () throws -> Void) {
     do {
       try action()
       engine.updateLibrary(store.library)
-    } catch { errorMessage = error.localizedDescription }
+    } catch {
+      if let onError { onError(error) } else { errorMessage = error.localizedDescription }
+    }
   }
 
-  private func showImportPanel() {
+  private func showImportPanel(onError: ((Error) -> Void)?) {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.json]
     panel.allowsMultipleSelection = false
     panel.begin { [weak self] response in
       guard response == .OK, let url = panel.url else { return }
-      self?.perform {
+      self?.perform(onError: onError) {
         guard let self else { return }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }

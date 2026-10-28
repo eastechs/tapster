@@ -77,22 +77,7 @@ import SwiftUI
     guard let state, let sync, state.confirmUnsavedChanges() else { return }
     do {
       try sync.commitForRestart(next)
-      let helper = Process()
-      helper.executableURL = URL(fileURLWithPath: "/bin/sh")
-      helper.arguments = [
-        "-c",
-        "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; exec /usr/bin/open \"$2\" --args \"$3\"",
-        "textend-restart", String(ProcessInfo.processInfo.processIdentifier),
-        Bundle.main.bundlePath,
-        ProcessInfo.processInfo.arguments.contains("--sync-preview")
-          ? "--sync-preview" : "--sync-restarted",
-      ]
-      helper.standardOutput = FileHandle.nullDevice
-      helper.standardError = FileHandle.nullDevice
-      try helper.run()
-      state.restartApproved = true
-      sync.stop()
-      NSApp.terminate(nil)
+      try relaunch()
     } catch {
       do { try sync.rollbackRestart() } catch {
         state.errorMessage =
@@ -101,6 +86,30 @@ import SwiftUI
       }
       state.errorMessage = error.localizedDescription
     }
+  }
+
+  func restart() throws {
+    guard let state, state.confirmUnsavedChanges() else { return }
+    try relaunch()
+  }
+
+  private func relaunch() throws {
+    let helper = Process()
+    helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+    helper.arguments = [
+      "-c",
+      "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; exec /usr/bin/open \"$2\" --args \"$3\"",
+      "textend-restart", String(ProcessInfo.processInfo.processIdentifier),
+      Bundle.main.bundlePath,
+      ProcessInfo.processInfo.arguments.contains("--sync-preview")
+        ? "--sync-preview" : "--settings-restarted",
+    ]
+    helper.standardOutput = FileHandle.nullDevice
+    helper.standardError = FileHandle.nullDevice
+    try helper.run()
+    state?.restartApproved = true
+    sync?.stop()
+    NSApp.terminate(nil)
   }
 }
 
@@ -130,7 +139,10 @@ import SwiftUI
 
     Settings {
       if let state = bootstrap.state {
-        SettingsView(state: state, updater: bootstrap.updater, sync: bootstrap.sync).textendTheme()
+        SettingsView(
+          state: state, updater: bootstrap.updater, sync: bootstrap.sync,
+          restart: bootstrap.restart
+        ).textendTheme()
       }
     }
 

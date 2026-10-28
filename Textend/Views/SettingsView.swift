@@ -7,11 +7,13 @@ struct SettingsView: View {
   @Bindable var state: AppState
   var updater: UpdaterService
   var sync: SyncCoordinator?
+  var restart: () throws -> Void
   @AppStorage("debounceMilliseconds") private var delay = 250
   @AppStorage("showDockIcon") private var showDockIcon = true
   @State private var delayText = "250"
   @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
   @State private var settingsError: String?
+  @State private var showingRestartPrompt = false
   @FocusState private var delayFocused: Bool
 
   var body: some View {
@@ -74,8 +76,7 @@ struct SettingsView: View {
         Section {
           Toggle("Show \(BuildIdentity.displayName) in the Dock", isOn: $showDockIcon)
           if DockVisibility.shared.requiresRestart(showInDock: showDockIcon) {
-            Label("Quit and reopen Textend to apply this change.", systemImage: "arrow.clockwise")
-              .font(.caption).foregroundStyle(.secondary)
+            Button("Restart to Apply…") { showingRestartPrompt = true }
           }
           Toggle(
             "Launch \(BuildIdentity.displayName) at login",
@@ -84,12 +85,32 @@ struct SettingsView: View {
           Text("App Behavior")
         } footer: {
           Text(
-            "Changes take effect after restarting Textend. When off, the Dock icon stays hidden even with windows open. Use the menu bar icon to reopen the library or Settings. Expansion keeps running."
+            "Dock visibility changes after restarting Textend. When off, the Dock icon stays hidden even with windows open. Use the menu bar icon to reopen the library or Settings. Expansion keeps running."
           )
           .font(.caption).foregroundStyle(.secondary)
         }
       }
       .tabItem { Label("General", systemImage: "gearshape") }
+
+      Form {
+        Section {
+          Button("Import Backup…") {
+            guard state.confirmUnsavedChanges() else { return }
+            state.importBackup { settingsError = $0.localizedDescription }
+          }
+          Button("Export Backup…") {
+            state.exportBackup { settingsError = $0.localizedDescription }
+          }
+        } header: {
+          Text("Library Backups")
+        } footer: {
+          Text(
+            "Export saves your saved snippets, Compositions, and collections to a JSON file. Import adds a Textend backup to your library and rejects conflicting identifiers or duplicate keywords."
+          )
+          .font(.caption).foregroundStyle(.secondary)
+        }
+      }
+      .tabItem { Label("Backups", systemImage: "externaldrive") }
 
       if let sync {
         ICloudSettingsView(sync: sync).tabItem { Label("iCloud", systemImage: "icloud") }
@@ -155,7 +176,7 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .controlSize(.regular)
-    .frame(width: 560, height: 520)
+    .frame(width: 680, height: 520)
     .onAppear {
       delayText = String(delay)
       launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -165,6 +186,19 @@ struct SettingsView: View {
       state.engine.updateDelay(value)
     }
     .onChange(of: delayFocused) { _, focused in if !focused { commitDelay() } }
+    .onChange(of: showDockIcon) { _, value in
+      showingRestartPrompt = DockVisibility.shared.requiresRestart(showInDock: value)
+    }
+    .alert("Restart Textend?", isPresented: $showingRestartPrompt) {
+      Button("Restart Now") {
+        do { try restart() } catch { settingsError = error.localizedDescription }
+      }
+      Button("Not Now", role: .cancel) {}
+    } message: {
+      Text(
+        "Restart to apply your Dock setting. If you choose Not Now, it will take effect the next time Textend opens. You’ll be asked to save any unsaved edits before restarting."
+      )
+    }
     .alert(
       "Settings",
       isPresented: Binding(get: { settingsError != nil }, set: { if !$0 { settingsError = nil } })

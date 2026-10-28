@@ -72,7 +72,7 @@ private final class QuickAccessPanel: NSPanel {
     state.engine.setPaletteOpen(true)
     if panel == nil {
       let panel = QuickAccessPanel(
-        contentRect: NSRect(x: 0, y: 0, width: 620, height: 520),
+        contentRect: NSRect(x: 0, y: 0, width: 620, height: 440),
         styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel], backing: .buffered,
         defer: false)
       panel.title = "Quick Access"
@@ -84,7 +84,10 @@ private final class QuickAccessPanel: NSPanel {
       panel.isReleasedWhenClosed = false
       panel.tabbingMode = .disallowed
       panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-      panel.contentView = NSHostingView(rootView: QuickAccessView(controller: self).textendTheme())
+      let content = NSHostingView(rootView: QuickAccessView(controller: self).textendTheme())
+      // Let the panel own its size, without adding the hidden title bar to SwiftUI's ideal size.
+      content.sizingOptions = []
+      panel.contentView = content
       panel.delegate = self
       self.panel = panel
     }
@@ -229,7 +232,7 @@ private struct QuickAccessView: View {
           Image(systemName: "xmark.circle.fill").controlHitArea()
         }
         .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Close Quick Access")
-      }.padding(20)
+      }.padding(.horizontal, 16).padding(.vertical, 12)
       HStack {
         Picker("Show", selection: $controller.allApps) {
           Text("Current App").tag(false)
@@ -238,7 +241,7 @@ private struct QuickAccessView: View {
         Spacer()
         Text(controller.bundleID.map(ApplicationLabel.name) ?? "Copy only").font(.caption)
           .foregroundStyle(.secondary)
-      }.padding(.horizontal, 20).padding(.bottom, 12)
+      }.padding(.horizontal, 16).padding(.bottom, 12)
       Divider()
       ScrollViewReader { proxy in
         List(
@@ -271,24 +274,31 @@ private struct QuickAccessView: View {
       }
       Divider()
       Text(controller.preview).font(.system(.callout, design: .monospaced)).lineLimit(4)
-        .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading).padding(16)
-      if !controller.insertionAvailable, controller.message == nil, controller.selected != nil {
-        Text("Copy only. Open Quick Access from an allowed text field to insert.")
-          .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.bottom, 8)
-      }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16).padding(.vertical, 12)
       if let message = controller.message {
         Text(message).font(.caption).foregroundStyle(.orange).padding(.horizontal, 16).padding(
           .bottom, 8)
       }
       HStack {
-        Text("esc Close").font(.caption).foregroundStyle(.secondary)
-        Spacer()
-        Button("Copy ⌘↩") { controller.confirm(copy: true) }.disabled(controller.selected == nil)
+        Text("esc Close").font(.caption).foregroundStyle(.secondary).fixedSize()
+        Spacer(minLength: 12)
+        if !controller.insertionAvailable, controller.selected != nil {
+          Text("Open Quick Access from an allowed text field to insert.")
+            .font(.caption).foregroundStyle(.secondary)
+            .multilineTextAlignment(.trailing)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        Button("Copy ⌘↩") { controller.confirm(copy: true) }
+          .disabled(controller.selected == nil).fixedSize()
         Button("Insert ↩") { controller.confirm(copy: false) }.disabled(
-          !controller.insertionAvailable)
-      }.padding(16)
+          !controller.insertionAvailable
+        ).fixedSize()
+      }.padding(.horizontal, 16).padding(.bottom, 12)
     }
-    .frame(width: 620, height: 520)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .ignoresSafeArea(.container, edges: .top)
     .background(.regularMaterial)
     .onAppear { searchFocused = true }
     .onChange(of: controller.presentation) { _, _ in searchFocused = true }
