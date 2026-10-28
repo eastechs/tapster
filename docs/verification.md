@@ -1290,3 +1290,28 @@ on the receiver. Fixture files and the detailed session log remain in the ignore
   documentation diff against publication output, CDN responses, manifest, tag,
   and sibling release instructions. `git diff --check` passed. No code changes
   required a build or test rerun.
+
+
+### 0.3.1 publication (2026-10-28)
+
+- Dave confirmed the first-launch permission setup works and explicitly approved
+  Apple notarization, public CDN/feed publication, and pushing release source/tag.
+- Release source: `3f02e98a5755131eaae9973b2ec7d0f586eb2da3`. Both Xcode configurations
+  now default to 0.3.1 (10), matching the exported app's About metadata.
+- The final app checks passed: 131 Swift tests, 16 release guard tests, 9 provisioning
+  tests, Swift formatting, whitespace checks, and the signed development build.
+  Release metadata and release-note review-loop passed with no remaining findings.
+- Built and exported a universal arm64/x86_64 app with the existing Developer ID
+  identity and production CloudKit configuration. Apple accepted notarization
+  `8ee63839-1a54-4c88-b0a8-13d446d597b4`. The release script verified the
+  nested signatures, stapled ticket, Gatekeeper assessment, and Sparkle signatures.
+- Published `Textend-0.3.1-10.zip` through the existing release workflow. The CDN
+  download matched SHA-256 `5b522c95792ed933cc03624b16e28d5e6419ff336f304676151c7e56178cd55a`
+  before the update feed was published. Download size: 12,859,896 bytes.
+- Independently verified the public feed reports 0.3.1 (10) with the exact local
+  feed hash `9d501f8f5c363d391f30dbad6dc3a277a8925eaf46f77b8e5caf84f48b8b440d`. Feed and ZIP
+  returned HTTP 200 with their expected revalidation and immutable cache policies.
+- Pushed source and annotated `v0.3.1`; the remote peeled tag matches the manifest
+  source revision above. The tag annotation records version, build, and archive hash.
+- The installed app was not replaced. A real Sparkle update to this version has
+  not been verified in this release run.
